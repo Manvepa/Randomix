@@ -1,0 +1,23 @@
+{
+    "name": "manvepa/randomix",
+    "description": "Aplicación web para selección aleatoria de estudiantes desde archivos Excel",
+    "type": "project",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2"
+    },
+    "autoload": {
+        "psr-4": {
+            "Randomix\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Randomix\\Tests\\": "tests/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "platform-check": true
+    }
+}
