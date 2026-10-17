@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-// Comprueba que el autoload de Composer esté disponible.
+// Comprueba que las dependencias de Composer estén instaladas.
 $autoloadPath = dirname(__DIR__) . '/vendor/autoload.php';
 
 if (!is_file($autoloadPath)) {
@@ -13,10 +13,13 @@ if (!is_file($autoloadPath)) {
     exit;
 }
 
-// Carga el autoload para utilizar las clases del proyecto.
+// Carga las clases y dependencias del proyecto.
 require $autoloadPath;
 
-// Respuesta temporal para comprobar el punto de entrada.
+// Carga la configuración centralizada de la aplicación.
+$config = require dirname(__DIR__) . '/config/app.php';
+
+// Respuesta temporal mientras construimos las funcionalidades.
 header('Content-Type: text/plain; charset=UTF-8');
 
-echo 'Randomix: punto de entrada operativo.';
+echo $config['name'] . ': punto de entrada operativo.';
