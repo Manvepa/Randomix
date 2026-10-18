@@ -41,10 +41,7 @@ ob_start();
     </div>
 
     <!-- Agrupa la carga del archivo y la validación de su hoja. -->
-    <section
-        class="upload-panel"
-        aria-labelledby="upload-title"
-    >
+    <section class="upload-panel" aria-labelledby="upload-title">
         <div class="upload-panel__heading">
             <span class="eyebrow">PASO 01 · IMPORTACIÓN</span>
 
@@ -64,11 +61,7 @@ ob_start();
                 : 'error';
             ?>
 
-            <div
-                class="upload-feedback upload-feedback--<?= $feedbackType ?>"
-                role="status"
-                aria-live="polite"
-            >
+            <div class="upload-feedback upload-feedback--<?= $feedbackType ?>" role="status" aria-live="polite">
                 <?= htmlspecialchars(
                     (string) ($uploadFeedback['message'] ?? ''),
                     ENT_QUOTES,
@@ -78,40 +71,21 @@ ob_start();
         <?php endif; ?>
 
         <!-- Envía el archivo al controlador de carga. -->
-        <form
-            class="upload-form"
-            action="index.php?page=dashboard"
-            method="POST"
-            enctype="multipart/form-data"
-        >
-            <input
-                type="hidden"
-                name="action"
-                value="upload_excel"
-            >
+        <form class="upload-form" action="index.php?page=dashboard" method="POST" enctype="multipart/form-data">
+            <input type="hidden" name="action" value="upload_excel">
 
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="<?= htmlspecialchars(
-                    (string) $_SESSION['csrf_token'],
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>"
-            >
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                (string) $_SESSION['csrf_token'],
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>">
 
             <div class="upload-form__file">
                 <label for="excel_file">
                     Archivo Excel
                 </label>
 
-                <input
-                    id="excel_file"
-                    name="excel_file"
-                    type="file"
-                    accept=".xlsx,.xls"
-                    required
-                >
+                <input id="excel_file" name="excel_file" type="file" accept=".xlsx,.xls" required>
 
                 <p>
                     Formatos permitidos: XLSX y XLS.
@@ -119,10 +93,7 @@ ob_start();
                 </p>
             </div>
 
-            <button
-                class="button button-primary"
-                type="submit"
-            >
+            <button class="button button-primary" type="submit">
                 <span>Cargar archivo</span>
                 <span aria-hidden="true">↑</span>
             </button>
@@ -179,53 +150,34 @@ ob_start();
                 </div>
 
                 <?php if (count($excelSheets) > 0): ?>
-                    <form
-                        class="upload-form"
-                        action="index.php?page=dashboard"
-                        method="POST"
-                    >
-                        <input
-                            type="hidden"
-                            name="action"
-                            value="validate_sheet"
-                        >
+                    <form class="upload-form" action="index.php?page=dashboard" method="POST">
+                        <input type="hidden" name="action" value="validate_sheet">
 
-                        <input
-                            type="hidden"
-                            name="csrf_token"
-                            value="<?= htmlspecialchars(
-                                (string) $_SESSION['csrf_token'],
-                                ENT_QUOTES,
-                                'UTF-8'
-                            ) ?>"
-                        >
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                            (string) $_SESSION['csrf_token'],
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
 
                         <div class="upload-form__file">
                             <label for="sheet_name">
                                 Hoja del archivo
                             </label>
 
-                            <select
-                                id="sheet_name"
-                                name="sheet_name"
-                                required
-                            >
+                            <select id="sheet_name" name="sheet_name" required>
                                 <option value="">
                                     Selecciona una hoja
                                 </option>
 
                                 <?php foreach ($excelSheets as $sheet): ?>
-                                    <option
-                                        value="<?= htmlspecialchars(
-                                            (string) $sheet,
-                                            ENT_QUOTES,
-                                            'UTF-8'
-                                        ) ?>"
-                                        <?= (
-                                            is_array($sheetValidation)
-                                            && ($sheetValidation['sheet_name'] ?? null) === $sheet
-                                        ) ? 'selected' : '' ?>
-                                    >
+                                    <option value="<?= htmlspecialchars(
+                                        (string) $sheet,
+                                        ENT_QUOTES,
+                                        'UTF-8'
+                                    ) ?>" <?= (
+                                         is_array($sheetValidation)
+                                         && ($sheetValidation['sheet_name'] ?? null) === $sheet
+                                     ) ? 'selected' : '' ?>>
                                         <?= htmlspecialchars(
                                             (string) $sheet,
                                             ENT_QUOTES,
@@ -236,19 +188,13 @@ ob_start();
                             </select>
                         </div>
 
-                        <button
-                            class="button button-primary"
-                            type="submit"
-                        >
+                        <button class="button button-primary" type="submit">
                             <span>Validar encabezados</span>
                             <span aria-hidden="true">✓</span>
                         </button>
                     </form>
                 <?php else: ?>
-                    <div
-                        class="upload-feedback upload-feedback--error"
-                        role="status"
-                    >
+                    <div class="upload-feedback upload-feedback--error" role="status">
                         No fue posible obtener las hojas del archivo.
                         Comprueba que el Excel sea válido o vuelve a cargarlo.
                     </div>
@@ -258,10 +204,7 @@ ob_start();
                 <?php if (is_array($sheetValidation)): ?>
 
                     <?php if (($sheetValidation['success'] ?? false) !== true): ?>
-                        <div
-                            class="upload-feedback upload-feedback--error"
-                            role="alert"
-                        >
+                        <div class="upload-feedback upload-feedback--error" role="alert">
                             <strong>No fue posible validar la hoja.</strong>
 
                             <?php foreach (
@@ -278,10 +221,7 @@ ob_start();
                         </div>
 
                     <?php elseif (($sheetValidation['valid'] ?? false) === true): ?>
-                        <div
-                            class="upload-feedback upload-feedback--success"
-                            role="status"
-                        >
+                        <div class="upload-feedback upload-feedback--success" role="status">
                             <strong>¡Encabezados válidos!</strong>
 
                             <p>
@@ -298,10 +238,7 @@ ob_start();
                         </div>
 
                     <?php else: ?>
-                        <div
-                            class="upload-feedback upload-feedback--error"
-                            role="alert"
-                        >
+                        <div class="upload-feedback upload-feedback--error" role="alert">
                             <strong>
                                 La hoja no cumple con los encabezados requeridos.
                             </strong>
@@ -367,96 +304,64 @@ ob_start();
             </div>
         <?php endif; ?>
 
-        
-    <!-- Permite configurar la selección después de validar la hoja. -->
-    <?php if (
-        is_array($sheetValidation)
-        && ($sheetValidation['success'] ?? false) === true
-        && ($sheetValidation['valid'] ?? false) === true
-    ): ?>
-        <section
-            class="dashboard-section"
-            aria-labelledby="selection-form-title"
-        >
-            <div class="dashboard-section__heading">
-                <div>
-                    <h2 id="selection-form-title">
-                        Selección aleatoria
-                    </h2>
 
-                    <p>
-                        Indica cuántos estudiantes deseas seleccionar
-                        de la hoja validada.
-                    </p>
+        <!-- Permite configurar la selección después de validar la hoja. -->
+        <?php if (
+            is_array($sheetValidation)
+            && ($sheetValidation['success'] ?? false) === true
+            && ($sheetValidation['valid'] ?? false) === true
+        ): ?>
+            <section class="dashboard-section" aria-labelledby="selection-form-title">
+                <div class="dashboard-section__heading">
+                    <div>
+                        <h2 id="selection-form-title">
+                            Selección aleatoria
+                        </h2>
+
+                        <p>
+                            Indica cuántos estudiantes deseas seleccionar
+                            de la hoja validada.
+                        </p>
+                    </div>
                 </div>
-            </div>
 
-            <form
-                class="upload-form"
-                action="index.php?page=dashboard"
-                method="POST"
-            >
-                <input
-                    type="hidden"
-                    name="action"
-                    value="execute_selection"
-                >
+                <form class="upload-form" action="index.php?page=dashboard" method="POST">
+                    <input type="hidden" name="action" value="execute_selection">
 
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?= htmlspecialchars(
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
                         (string) $_SESSION['csrf_token'],
                         ENT_QUOTES,
                         'UTF-8'
-                    ) ?>"
-                >
+                    ) ?>">
 
-                <input
-                    type="hidden"
-                    name="sheet_name"
-                    value="<?= htmlspecialchars(
+                    <input type="hidden" name="sheet_name" value="<?= htmlspecialchars(
                         (string) $sheetValidation['sheet_name'],
                         ENT_QUOTES,
                         'UTF-8'
-                    ) ?>"
-                >
+                    ) ?>">
 
-                <div class="upload-form__file">
-                    <label for="selection_quantity">
-                        Cantidad de estudiantes
-                    </label>
+                    <div class="upload-form__file">
+                        <label for="selection_quantity">
+                            Cantidad de estudiantes
+                        </label>
 
-                    <input
-                        id="selection_quantity"
-                        type="number"
-                        name="quantity"
-                        min="0"
-                        step="1"
-                        required
-                    >
-                </div>
+                        <input id="selection_quantity" type="number" name="quantity" min="0" step="1" required>
+                    </div>
 
-                <button
-                    class="button button-primary"
-                    type="submit"
-                >
-                    Ejecutar selección
-                </button>
-            </form>
-        </section>
-    <?php endif; ?>
+                    <button class="button button-primary" type="submit">
+                        Ejecutar selección
+                    </button>
+                </form>
+            </section>
+        <?php endif; ?>
 
 
     </section>
 
-    
+
     <!-- Presenta los resultados de la selección o los errores encontrados. -->
     <?php if (is_array($selectionResult)): ?>
-        <section
-            class="dashboard-section"
-            aria-labelledby="selection-results-title"
-        >
+        <section class="dashboard-section" aria-labelledby="selection-results-title">
             <div class="dashboard-section__heading">
                 <div>
                     <h2 id="selection-results-title">
@@ -545,6 +450,19 @@ ob_start();
                         <?= (int) $selectionResult['not_selected_count'] ?>
                     </p>
                 </div>
+
+
+                <!-- Permite descargar los resultados de ambos grupos en Excel. -->
+                <div class="export-actions">
+                    <a class="button button-primary" href="index.php?page=dashboard&amp;export=selected">
+                        Descargar seleccionados (.xlsx)
+                    </a>
+
+                    <a class="button button-secondary" href="index.php?page=dashboard&amp;export=not_selected">
+                        Descargar no seleccionados (.xlsx)
+                    </a>
+                </div>
+
 
                 <!-- Presenta los estudiantes elegidos al azar. -->
                 <h3>Estudiantes seleccionados</h3>
@@ -641,10 +559,7 @@ ob_start();
 
 
     <!-- Presenta las etapas del proceso de selección. -->
-    <section
-        class="dashboard-section"
-        aria-labelledby="workflow-title"
-    >
+    <section class="dashboard-section" aria-labelledby="workflow-title">
         <div class="dashboard-section__heading">
             <div>
                 <h2 id="workflow-title">Proceso de selección</h2>
@@ -661,10 +576,7 @@ ob_start();
             <article class="workflow-card">
                 <span class="workflow-card__number">01</span>
 
-                <div
-                    class="workflow-card__icon"
-                    aria-hidden="true"
-                >
+                <div class="workflow-card__icon" aria-hidden="true">
                     ↑
                 </div>
 
@@ -683,10 +595,7 @@ ob_start();
             <article class="workflow-card">
                 <span class="workflow-card__number">02</span>
 
-                <div
-                    class="workflow-card__icon"
-                    aria-hidden="true"
-                >
+                <div class="workflow-card__icon" aria-hidden="true">
                     ⇄
                 </div>
 
@@ -705,10 +614,7 @@ ob_start();
             <article class="workflow-card">
                 <span class="workflow-card__number">03</span>
 
-                <div
-                    class="workflow-card__icon"
-                    aria-hidden="true"
-                >
+                <div class="workflow-card__icon" aria-hidden="true">
                     ↓
                 </div>
 
@@ -729,10 +635,7 @@ ob_start();
 
     <!-- Informa sobre el alcance funcional actual. -->
     <aside class="dashboard-notice">
-        <span
-            class="dashboard-notice__icon"
-            aria-hidden="true"
-        >
+        <span class="dashboard-notice__icon" aria-hidden="true">
             i
         </span>
 

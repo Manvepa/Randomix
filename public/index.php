@@ -7,6 +7,7 @@ use Randomix\Controllers\UploadController;
 use Randomix\Controllers\ExcelInspectionController;
 use Randomix\Security\SessionManager;
 use Randomix\Controllers\SelectionController;
+use Randomix\Services\ExcelExportService;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -105,6 +106,102 @@ if ($isAuthenticated) {
         unset($_SESSION['selection_result']);
     }
 }
+
+
+/**
+ * Procesa las descargas de Excel antes de generar cualquier HTML.
+ * Solo permite descargar resultados de una selección válida.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET'
+    && isset($_GET['export'])
+) {
+    // Exige una sesión administrativa autenticada.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    $exportType = $_GET['export'];
+
+    // Solo se permiten los dos grupos de resultados disponibles.
+    if (
+        !is_string($exportType)
+        || !in_array($exportType, ['selected', 'not_selected'], true)
+    ) {
+        http_response_code(400);
+        exit('Tipo de exportación no válido.');
+    }
+
+    $selectionResult = $_SESSION['selection_result'] ?? null;
+
+    // Impide exportar si no existe una selección válida.
+    if (
+        !is_array($selectionResult)
+        || ($selectionResult['success'] ?? false) !== true
+    ) {
+        http_response_code(404);
+        exit('No hay resultados disponibles para exportar.');
+    }
+
+    $selectedRecords = $selectionResult['selected'] ?? null;
+    $notSelectedRecords = $selectionResult['not_selected'] ?? null;
+
+    if (
+        !is_array($selectedRecords)
+        || !is_array($notSelectedRecords)
+    ) {
+        http_response_code(500);
+        exit('Los resultados de la selección no tienen una estructura válida.');
+    }
+
+    // Obtiene los encabezados a partir de ambos grupos.
+    // Esto permite exportar un grupo vacío conservando sus columnas.
+    $allRecords = array_merge(
+        $selectedRecords,
+        $notSelectedRecords
+    );
+
+    if ($allRecords === [] || !is_array($allRecords[0])) {
+        http_response_code(500);
+        exit('No fue posible determinar los encabezados del Excel.');
+    }
+
+    $headers = array_keys($allRecords[0]);
+
+    // Selecciona el grupo solicitado y genera el archivo XLSX.
+    $records = $exportType === 'selected'
+        ? $selectedRecords
+        : $notSelectedRecords;
+
+    try {
+        $exportService = new ExcelExportService();
+        $content = $exportService->generate($headers, $records);
+    } catch (Throwable $exception) {
+        error_log($exception->__toString());
+
+        http_response_code(500);
+        exit('No fue posible generar el archivo Excel.');
+    }
+
+    // Envía la descarga sin guardar un archivo permanente.
+    $filename = $exportType === 'selected'
+        ? 'estudiantes_seleccionados.xlsx'
+        : 'estudiantes_no_seleccionados.xlsx';
+
+    header(
+        'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    header(
+        'Content-Disposition: attachment; filename="' . $filename . '"'
+    );
+    header('Content-Length: ' . strlen($content));
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+
+    echo $content;
+    exit;
+}
+
 
 // Procesa el inicio de sesión enviado mediante POST.
 if (
