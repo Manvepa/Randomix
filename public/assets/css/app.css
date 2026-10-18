@@ -614,3 +614,143 @@ body {
         padding: 18px 20px;
     }
 }
+
+
+/* =========================================================
+   Formulario de carga temporal de Excel
+   ========================================================= */
+
+.upload-panel {
+    margin-bottom: 32px;
+    padding: 30px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-card);
+}
+
+.upload-panel__heading {
+    margin-bottom: 24px;
+}
+
+.upload-panel__heading h2 {
+    margin: 10px 0;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+}
+
+.upload-panel__heading p {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.upload-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 22px;
+}
+
+.upload-form__file {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 0;
+}
+
+.upload-form__file label {
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.upload-form__file input[type="file"] {
+    width: 100%;
+    min-height: 48px;
+    padding: 9px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: #f9fbfd;
+    color: var(--color-text);
+    font: inherit;
+    font-size: 12px;
+}
+
+.upload-form__file p {
+    margin: 0;
+    color: var(--color-muted);
+    font-size: 11px;
+    line-height: 1.6;
+}
+
+.upload-form .button {
+    min-width: 190px;
+    cursor: pointer;
+}
+
+.upload-form .button:hover {
+    background: var(--color-primary-hover);
+}
+
+.upload-form .button:focus-visible,
+.upload-form__file input:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+.upload-feedback {
+    margin-bottom: 20px;
+    padding: 14px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.upload-feedback--success {
+    border-color: #b7dfc5;
+    color: #185c35;
+    background: #f0faf3;
+}
+
+.upload-feedback--error {
+    border-color: #efc0c0;
+    color: #922c2c;
+    background: #fff5f5;
+}
+
+.upload-current {
+    margin-top: 24px;
+    padding: 18px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-background);
+    overflow-wrap: anywhere;
+}
+
+.upload-current strong {
+    font-size: 13px;
+}
+
+.upload-current p {
+    margin: 8px 0 0;
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+@media (max-width: 700px) {
+    .upload-panel {
+        padding: 22px 18px;
+    }
+
+    .upload-form {
+        grid-template-columns: 1fr;
+    }
+
+    .upload-form .button {
+        width: 100%;
+    }
+}
+
