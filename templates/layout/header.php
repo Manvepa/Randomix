@@ -13,7 +13,7 @@ $adminUsername = $_SESSION['admin']['username'] ?? 'Administrador';
             href="index.php?page=dashboard"
             aria-label="Randomix, página principal"
         >
-            <span class="brand-mark" aria-hidden="true">R</span>
+            <img class="brand-mark" src="assets/images/randomix-logo.png" alt="" aria-hidden="true">
 
             <span class="dashboard-brand__text">
                 <span class="dashboard-brand__name">Randomix</span>

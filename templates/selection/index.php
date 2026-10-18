@@ -35,9 +35,7 @@ ob_start();
             </p>
         </div>
 
-        <div class="dashboard-welcome__icon" aria-hidden="true">
-            R
-        </div>
+        <img class="dashboard-welcome__logo" src="assets/images/randomix-logo.png" alt="Logotipo de Randomix">
     </div>
 
     <!-- Agrupa la carga del archivo y la validación de su hoja. -->

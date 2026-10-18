@@ -11,7 +11,7 @@ ob_start();
 
 <section class="login-page">
     <div class="login-brand">
-        <div class="brand-mark" aria-hidden="true">R</div>
+        <img class="brand-mark" src="assets/images/randomix-logo.png" alt="" aria-hidden="true">
 
         <div>
             <p class="brand-name">Randomix</p>
