@@ -6,6 +6,7 @@ use Randomix\Controllers\AuthController;
 use Randomix\Controllers\UploadController;
 use Randomix\Controllers\ExcelInspectionController;
 use Randomix\Security\SessionManager;
+use Randomix\Controllers\SelectionController;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -72,6 +73,12 @@ $excelInspectionController = new ExcelInspectionController(
     $importConfig['required_headers']
 );
 
+// Prepara el controlador encargado del procesamiento y la selección.
+$selectionController = new SelectionController(
+    $projectRoot,
+    $importConfig['required_headers']
+);
+
 // Limpia archivos temporales vencidos y descarta referencias expiradas.
 if ($isAuthenticated) {
     try {
@@ -95,6 +102,7 @@ if ($isAuthenticated) {
             'message' => 'El archivo temporal venció. Debes cargarlo nuevamente.',
         ];
         unset($_SESSION['sheet_validation']);
+        unset($_SESSION['selection_result']);
     }
 }
 
@@ -202,6 +210,7 @@ if (
             if ($result['success'] === true) {
                 // Evita conservar la validación del archivo anterior.
                 unset($_SESSION['sheet_validation']);
+                unset($_SESSION['selection_result']);
                 $now = time();
 
                 // Registra solo los metadatos del archivo temporal.
@@ -274,6 +283,9 @@ if (
     } else {
         $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
         $sheetName = $_POST['sheet_name'] ?? '';
+        
+        // Descarta resultados anteriores al iniciar una nueva validación.
+        unset($_SESSION['selection_result']);
 
         // Comprueba que exista un archivo temporal y que la hoja sea válida.
         if (
@@ -303,6 +315,70 @@ if (
 }
 
 
+/**
+ * Ejecuta la selección aleatoria sobre la hoja previamente validada.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'execute_selection'
+) {
+    // Solo los administradores autenticados pueden ejecutar selecciones.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    // Comprueba el token CSRF antes de procesar los registros.
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        $_SESSION['selection_result'] = [
+            'success' => false,
+            'errors' => [
+                'La solicitud ha expirado. Recarga la página e inténtalo nuevamente.',
+            ],
+        ];
+    } else {
+        $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
+        $sheetValidation = $_SESSION['sheet_validation'] ?? null;
+        $sheetName = $_POST['sheet_name'] ?? '';
+        $quantityInput = $_POST['quantity'] ?? null;
+
+        // Verifica que exista un archivo, una hoja validada y una cantidad entera.
+        if (
+            !is_array($uploadedExcel)
+            || !is_array($sheetValidation)
+            || !is_string($sheetName)
+            || trim($sheetName) === ''
+            || !is_string($quantityInput)
+            || $quantityInput === ''
+            || !ctype_digit($quantityInput)
+        ) {
+            $_SESSION['selection_result'] = [
+                'success' => false,
+                'errors' => [
+                    'Debes validar una hoja y especificar una cantidad entera válida.',
+                ],
+            ];
+        } else {
+            // Ejecuta la selección mediante el controlador especializado.
+            $_SESSION['selection_result'] = $selectionController->handle(
+                $uploadedExcel,
+                $sheetName,
+                (int) $quantityInput,
+                $sheetValidation
+            );
+        }
+    }
+
+    // Redirige al panel para evitar repetir el envío al actualizar.
+    header('Location: index.php?page=dashboard');
+    exit;
+}
+
 // Impide acceder al panel sin una sesión autenticada.
 if ($page === 'dashboard' && !$isAuthenticated) {
     header('Location: index.php');
@@ -326,6 +402,7 @@ if ($page === 'dashboard') {
     $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
     $excelSheets = [];
     $sheetValidation = $_SESSION['sheet_validation'] ?? null;
+    $selectionResult = $_SESSION['selection_result'] ?? null;
 
     // Obtiene las hojas únicamente si existe un archivo temporal vigente.
     if (is_array($uploadedExcel)) {

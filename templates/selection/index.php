@@ -35,7 +35,9 @@ ob_start();
             </p>
         </div>
 
-        <img class="dashboard-welcome__logo" src="assets/images/randomix-logo.png" alt="Logotipo de Randomix">
+        <div class="dashboard-welcome__icon" aria-hidden="true">
+            R
+        </div>
     </div>
 
     <!-- Agrupa la carga del archivo y la validación de su hoja. -->
@@ -365,7 +367,278 @@ ob_start();
             </div>
         <?php endif; ?>
 
+        
+    <!-- Permite configurar la selección después de validar la hoja. -->
+    <?php if (
+        is_array($sheetValidation)
+        && ($sheetValidation['success'] ?? false) === true
+        && ($sheetValidation['valid'] ?? false) === true
+    ): ?>
+        <section
+            class="dashboard-section"
+            aria-labelledby="selection-form-title"
+        >
+            <div class="dashboard-section__heading">
+                <div>
+                    <h2 id="selection-form-title">
+                        Selección aleatoria
+                    </h2>
+
+                    <p>
+                        Indica cuántos estudiantes deseas seleccionar
+                        de la hoja validada.
+                    </p>
+                </div>
+            </div>
+
+            <form
+                class="upload-form"
+                action="index.php?page=dashboard"
+                method="POST"
+            >
+                <input
+                    type="hidden"
+                    name="action"
+                    value="execute_selection"
+                >
+
+                <input
+                    type="hidden"
+                    name="csrf_token"
+                    value="<?= htmlspecialchars(
+                        (string) $_SESSION['csrf_token'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                >
+
+                <input
+                    type="hidden"
+                    name="sheet_name"
+                    value="<?= htmlspecialchars(
+                        (string) $sheetValidation['sheet_name'],
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                >
+
+                <div class="upload-form__file">
+                    <label for="selection_quantity">
+                        Cantidad de estudiantes
+                    </label>
+
+                    <input
+                        id="selection_quantity"
+                        type="number"
+                        name="quantity"
+                        min="0"
+                        step="1"
+                        required
+                    >
+                </div>
+
+                <button
+                    class="button button-primary"
+                    type="submit"
+                >
+                    Ejecutar selección
+                </button>
+            </form>
+        </section>
+    <?php endif; ?>
+
+
     </section>
+
+    
+    <!-- Presenta los resultados de la selección o los errores encontrados. -->
+    <?php if (is_array($selectionResult)): ?>
+        <section
+            class="dashboard-section"
+            aria-labelledby="selection-results-title"
+        >
+            <div class="dashboard-section__heading">
+                <div>
+                    <h2 id="selection-results-title">
+                        Resultados de la selección
+                    </h2>
+
+                    <p>
+                        Consulta los estudiantes seleccionados y los que
+                        no fueron seleccionados.
+                    </p>
+                </div>
+            </div>
+
+            <?php if (($selectionResult['success'] ?? false) !== true): ?>
+
+                <!-- Informa los errores sin exponer detalles internos. -->
+                <div class="alert alert-error" role="alert">
+                    <strong>No fue posible ejecutar la selección.</strong>
+
+                    <?php foreach (
+                        ($selectionResult['errors'] ?? []) as $error
+                    ): ?>
+                        <p>
+                            <?= htmlspecialchars(
+                                (string) $error,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>
+                        </p>
+                    <?php endforeach; ?>
+                </div>
+
+            <?php else: ?>
+
+                <?php
+                // Recupera los grupos devueltos por SelectionService.
+                $selectedRecords = $selectionResult['selected'] ?? [];
+                $notSelectedRecords = $selectionResult['not_selected'] ?? [];
+
+                // Obtiene los encabezados originales incluso si no hubo seleccionados.
+                $allRecords = array_merge(
+                    $selectedRecords,
+                    $notSelectedRecords
+                );
+
+                $resultHeaders = $allRecords !== []
+                    ? array_keys($allRecords[0])
+                    : [];
+
+                // Convierte los valores de las celdas en texto seguro para HTML.
+                $formatResultCell = static function ($value): string {
+                    if ($value === null || $value === '') {
+                        return '—';
+                    }
+
+                    if (is_bool($value)) {
+                        return $value ? 'Sí' : 'No';
+                    }
+
+                    if (is_scalar($value)) {
+                        return (string) $value;
+                    }
+
+                    return json_encode(
+                        $value,
+                        JSON_UNESCAPED_UNICODE
+                        | JSON_UNESCAPED_SLASHES
+                    ) ?: '';
+                };
+                ?>
+
+                <!-- Resume la cantidad de registros procesados. -->
+                <div class="dashboard-section__heading">
+                    <p>
+                        <strong>Total de estudiantes:</strong>
+                        <?= (int) $selectionResult['total_records'] ?>
+                    </p>
+
+                    <p>
+                        <strong>Seleccionados:</strong>
+                        <?= (int) $selectionResult['selected_count'] ?>
+                    </p>
+
+                    <p>
+                        <strong>No seleccionados:</strong>
+                        <?= (int) $selectionResult['not_selected_count'] ?>
+                    </p>
+                </div>
+
+                <!-- Presenta los estudiantes elegidos al azar. -->
+                <h3>Estudiantes seleccionados</h3>
+
+                <?php if ($selectedRecords === []): ?>
+                    <p>No se seleccionaron estudiantes.</p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <?php foreach ($resultHeaders as $header): ?>
+                                        <th scope="col">
+                                            <?= htmlspecialchars(
+                                                (string) $header,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>
+                                        </th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <?php foreach ($selectedRecords as $record): ?>
+                                    <tr>
+                                        <?php foreach ($resultHeaders as $header): ?>
+                                            <td>
+                                                <?= htmlspecialchars(
+                                                    $formatResultCell(
+                                                        $record[$header] ?? null
+                                                    ),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <!-- Presenta los estudiantes que quedaron fuera de la selección. -->
+                <h3>Estudiantes no seleccionados</h3>
+
+                <?php if ($notSelectedRecords === []): ?>
+                    <p>
+                        No hay estudiantes pendientes:
+                        todos fueron seleccionados.
+                    </p>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <?php foreach ($resultHeaders as $header): ?>
+                                        <th scope="col">
+                                            <?= htmlspecialchars(
+                                                (string) $header,
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ) ?>
+                                        </th>
+                                    <?php endforeach; ?>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                <?php foreach ($notSelectedRecords as $record): ?>
+                                    <tr>
+                                        <?php foreach ($resultHeaders as $header): ?>
+                                            <td>
+                                                <?= htmlspecialchars(
+                                                    $formatResultCell(
+                                                        $record[$header] ?? null
+                                                    ),
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </td>
+                                        <?php endforeach; ?>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+            <?php endif; ?>
+        </section>
+    <?php endif; ?>
+
 
     <!-- Presenta las etapas del proceso de selección. -->
     <section

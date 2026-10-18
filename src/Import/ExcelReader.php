@@ -74,6 +74,8 @@ final class ExcelReader
 
     /**
      * Devuelve los nombres de las hojas disponibles en el libro.
+     *
+     * @return array<int, string>
      */
     public function getSheetNames(string $filePath): array
     {
@@ -105,6 +107,8 @@ final class ExcelReader
      *
      * Conserva las celdas vacías para que el validador pueda detectar
      * columnas obligatorias faltantes.
+     *
+     * @return array<int, string>
      */
     public function getHeaders(
         string $filePath,
@@ -169,6 +173,96 @@ final class ExcelReader
         } catch (Throwable $exception) {
             throw new RuntimeException(
                 'No se pudieron leer los encabezados de la hoja seleccionada.',
+                0,
+                $exception
+            );
+        }
+    }
+
+    /**
+     * Extrae las filas de la hoja seleccionada, sin incluir los encabezados.
+     *
+     * Conserva las celdas vacías intermedias y los valores originales.
+     * La eliminación de filas vacías y la validación del límite de registros
+     * corresponden a StudentRecordsProcessor.
+     *
+     * @return array<int, array<int, mixed>>
+     */
+    public function getRows(
+        string $filePath,
+        string $sheetName
+    ): array {
+        // Comprueba que la hoja solicitada pertenezca al libro.
+        if (
+            $sheetName === ''
+            || !in_array(
+                $sheetName,
+                $this->getSheetNames($filePath),
+                true
+            )
+        ) {
+            throw new InvalidArgumentException(
+                'La hoja seleccionada no existe en el archivo Excel.'
+            );
+        }
+
+        $reader = $this->createReader($filePath);
+
+        // Limita la lectura a la hoja elegida por el usuario.
+        $reader->setLoadSheetsOnly([$sheetName]);
+
+        try {
+            $spreadsheet = $reader->load($filePath);
+
+            try {
+                $worksheet = $spreadsheet->getSheetByName($sheetName);
+
+                if ($worksheet === null) {
+                    throw new RuntimeException(
+                        'No se pudo abrir la hoja seleccionada.'
+                    );
+                }
+
+                // Obtiene los límites de los datos de la hoja.
+                $lastRow = $worksheet->getHighestDataRow();
+                $lastColumn = Coordinate::columnIndexFromString(
+                    $worksheet->getHighestDataColumn()
+                );
+
+                $rows = [];
+
+                // Empieza en la fila 2 para excluir los encabezados.
+                for ($rowIndex = 2; $rowIndex <= $lastRow; $rowIndex++) {
+                    $row = [];
+
+                    // Lee las columnas en orden y conserva las vacías.
+                    for (
+                        $columnIndex = 1;
+                        $columnIndex <= $lastColumn;
+                        $columnIndex++
+                    ) {
+                        $coordinate = Coordinate::stringFromColumnIndex(
+                            $columnIndex
+                        ) . $rowIndex;
+
+                        $row[] = $worksheet
+                            ->getCell($coordinate)
+                            ->getValue();
+                    }
+
+                    $rows[] = $row;
+                }
+
+                return $rows;
+            } finally {
+                // Libera los recursos del libro después de la lectura.
+                $spreadsheet->disconnectWorksheets();
+            }
+        } catch (InvalidArgumentException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            throw new RuntimeException(
+                'No se pudieron leer las filas de la hoja seleccionada.',
                 0,
                 $exception
             );
