@@ -453,6 +453,8 @@ ob_start();
 
 
                 <!-- Permite descargar los resultados de ambos grupos en Excel. -->
+
+                <!-- Permite descargar Excel y visualizar los resultados en PDF. -->
                 <div class="export-actions">
                     <a class="button button-primary" href="index.php?page=dashboard&amp;export=selected">
                         Descargar seleccionados (.xlsx)
@@ -460,6 +462,16 @@ ob_start();
 
                     <a class="button button-secondary" href="index.php?page=dashboard&amp;export=not_selected">
                         Descargar no seleccionados (.xlsx)
+                    </a>
+
+                    <a class="button button-primary" href="index.php?page=dashboard&amp;pdf=selected" target="_blank"
+                        rel="noopener noreferrer">
+                        Visualizar PDF de seleccionados
+                    </a>
+
+                    <a class="button button-secondary" href="index.php?page=dashboard&amp;pdf=not_selected" target="_blank"
+                        rel="noopener noreferrer">
+                        Visualizar PDF de no seleccionados
                     </a>
                 </div>
 

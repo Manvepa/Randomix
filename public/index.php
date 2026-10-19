@@ -8,6 +8,7 @@ use Randomix\Controllers\ExcelInspectionController;
 use Randomix\Security\SessionManager;
 use Randomix\Controllers\SelectionController;
 use Randomix\Services\ExcelExportService;
+use Randomix\Services\PdfPreviewService;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -202,6 +203,113 @@ if (
     exit;
 }
 
+/**
+ * Genera la vista previa de los resultados en PDF.
+ * Requiere una sesión administrativa y una selección válida.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'GET'
+    && isset($_GET['pdf'])
+) {
+    // Exige una sesión administrativa autenticada.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    // Acepta únicamente los dos grupos de resultados disponibles.
+    $pdfType = $_GET['pdf'];
+
+    if (
+        !is_string($pdfType)
+        || !in_array($pdfType, ['selected', 'not_selected'], true)
+    ) {
+        http_response_code(400);
+        exit('Tipo de PDF no válido.');
+    }
+
+    $selectionResult = $_SESSION['selection_result'] ?? null;
+
+    // Impide generar PDF si no existe una selección válida.
+    if (
+        !is_array($selectionResult)
+        || ($selectionResult['success'] ?? false) !== true
+    ) {
+        http_response_code(404);
+        exit('No hay resultados disponibles para generar el PDF.');
+    }
+
+    $selectedRecords = $selectionResult['selected'] ?? null;
+    $notSelectedRecords = $selectionResult['not_selected'] ?? null;
+
+    if (
+        !is_array($selectedRecords)
+        || !is_array($notSelectedRecords)
+    ) {
+        http_response_code(500);
+        exit('Los resultados de la selección no tienen una estructura válida.');
+    }
+
+    // Obtiene los encabezados de ambos grupos para conservar las columnas,
+    // incluso cuando el grupo solicitado no contiene registros.
+    $allRecords = array_merge(
+        $selectedRecords,
+        $notSelectedRecords
+    );
+
+    if (
+        $allRecords === []
+        || !isset($allRecords[0])
+        || !is_array($allRecords[0])
+    ) {
+        http_response_code(500);
+        exit('No fue posible determinar los encabezados del PDF.');
+    }
+
+    $headers = array_keys($allRecords[0]);
+
+    // Selecciona los registros y define el título del documento.
+    $records = $pdfType === 'selected'
+        ? $selectedRecords
+        : $notSelectedRecords;
+
+    $title = $pdfType === 'selected'
+        ? 'Estudiantes seleccionados'
+        : 'Estudiantes no seleccionados';
+
+    $filename = $pdfType === 'selected'
+        ? 'estudiantes_seleccionados.pdf'
+        : 'estudiantes_no_seleccionados.pdf';
+
+    try {
+        $pdfService = new PdfPreviewService();
+
+        $content = $pdfService->generate(
+            $headers,
+            $records,
+            $title
+        );
+    } catch (Throwable $exception) {
+        // Registra el error técnico sin exponer detalles internos.
+        error_log($exception->__toString());
+
+        http_response_code(500);
+        exit('No fue posible generar la vista previa del PDF.');
+    }
+
+    // Envía el PDF al navegador para visualizarlo, no para descargarlo.
+    header('Content-Type: application/pdf');
+    header(
+        'Content-Disposition: inline; filename="' . $filename . '"'
+    );
+    header('Content-Length: ' . strlen($content));
+    header('Cache-Control: private, no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    header('X-Content-Type-Options: nosniff');
+
+    echo $content;
+    exit;
+}
 
 // Procesa el inicio de sesión enviado mediante POST.
 if (
