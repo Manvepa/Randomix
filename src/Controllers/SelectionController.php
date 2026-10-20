@@ -86,22 +86,66 @@ final class SelectionController
                 );
             }
 
-            // Lee las filas y transforma sus valores en registros asociados
-            // a los encabezados oficiales.
+            
+            // Lee las filas conservando el orden original de las columnas.
             $rows = $this->excelReader->getRows(
                 $filePath,
                 $sheetName
             );
 
+            // Busca la columna opcional de numeración agregada por Randomix.
+            $numberColumnIndex = array_search(
+                '#',
+                array_map(
+                    static fn (mixed $header): string => trim(
+                        (string) ($header ?? '')
+                    ),
+                    $headers
+                ),
+                true
+            );
+
+            // Retira la columna # de los encabezados y de todas las filas.
+            // Así, los datos vuelven a coincidir con el esquema oficial.
+            if ($numberColumnIndex !== false) {
+                array_splice($headers, $numberColumnIndex, 1);
+
+                foreach ($rows as &$row) {
+                    if (
+                        is_array($row)
+                        && array_key_exists($numberColumnIndex, $row)
+                    ) {
+                        array_splice(
+                            $row,
+                            $numberColumnIndex,
+                            1
+                        );
+                    }
+                }
+
+                unset($row);
+            }
+
+            // Procesa únicamente los encabezados y datos oficiales.
             $records = $this->recordsProcessor->process(
                 $headers,
                 $rows
             );
 
+
             // Realiza la selección aleatoria sin reemplazo.
             $result = $this->selectionService->select(
                 $records,
                 $quantity
+            );
+
+            // Agrega una numeración consecutiva independiente a cada resultado.
+            $selectedRecords = $this->addSequentialNumberColumn(
+                $result['selected']
+            );
+
+            $notSelectedRecords = $this->addSequentialNumberColumn(
+                $result['not_selected']
             );
 
             return [
@@ -111,8 +155,8 @@ final class SelectionController
                 'total_records' => count($records),
                 'selected_count' => count($result['selected']),
                 'not_selected_count' => count($result['not_selected']),
-                'selected' => $result['selected'],
-                'not_selected' => $result['not_selected'],
+                'selected' => $selectedRecords,
+                'not_selected' => $notSelectedRecords,
             ];
         } catch (InvalidArgumentException | RuntimeException $exception) {
             return [
@@ -166,4 +210,23 @@ final class SelectionController
 
         return $filePath;
     }
+
+    /**
+ * Agrega una columna # al comienzo de cada registro y lo numera desde 1.
+ *
+ * La numeración se reinicia para cada grupo de resultados.
+ *
+ * @param array<int, array<string, mixed>> $records Registros del resultado.
+ *
+ * @return array<int, array<string, mixed>> Registros numerados.
+ */
+private function addSequentialNumberColumn(array $records): array
+{
+    foreach ($records as $index => $record) {
+        // Coloca la numeración antes de las columnas originales.
+        $records[$index] = ['#' => $index + 1] + $record;
+    }
+
+    return $records;
+}
 }

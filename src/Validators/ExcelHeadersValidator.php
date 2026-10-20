@@ -77,18 +77,28 @@ final class ExcelHeadersValidator
             }
         }
 
+        // Excluye la columna opcional de numeración del esquema oficial.
+        // Se conserva en la validación de duplicados para detectar
+        // archivos que tengan más de una columna con el encabezado #.
+        $headersForSchema = array_values(
+            array_filter(
+                $nonEmptyHeaders,
+                static fn (string $header): bool => $header !== '#'
+            )
+        );
+
         // Identifica encabezados obligatorios que no están presentes.
         $missing = array_values(
             array_diff(
                 $this->requiredHeaders,
-                array_unique($nonEmptyHeaders)
+                array_unique($headersForSchema)
             )
         );
 
         // Identifica encabezados que no pertenecen al esquema.
         $extra = array_values(
             array_diff(
-                array_unique($nonEmptyHeaders),
+                array_unique($headersForSchema),
                 $this->requiredHeaders
             )
         );
