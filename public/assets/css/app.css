@@ -1,50 +1,35 @@
-/* Define la paleta y las propiedades globales de Randomix. */
+
+/* Paleta y propiedades globales */
 :root {
     color-scheme: light;
-
     --color-primary: #163b70;
     --color-primary-hover: #102e59;
     --color-accent: #3676c8;
-
     --color-text: #172b45;
     --color-muted: #64748b;
-
     --color-background: #f3f6fb;
     --color-surface: #ffffff;
     --color-border: #e1e8f0;
-
     --radius-card: 20px;
     --shadow-card: 0 20px 60px rgb(22 59 112 / 9%);
 }
 
-/* Normaliza el tamaño de los elementos para facilitar el diseño responsive. */
-* {
-    box-sizing: border-box;
-}
+* { box-sizing: border-box; }
 
-html {
-    min-width: 320px;
-    min-height: 100%;
-}
+html { min-width: 320px; min-height: 100%; }
 
 body {
     margin: 0;
     min-height: 100vh;
-    font-family:
-        "Segoe UI",
-        Arial,
-        sans-serif;
+    font-family: "Segoe UI", Arial, sans-serif;
     color: var(--color-text);
     background: var(--color-background);
     -webkit-font-smoothing: antialiased;
 }
 
-/* Proporciona el área general donde se renderizan las páginas. */
-.app-shell {
-    min-height: 100vh;
-}
+.app-shell { min-height: 100vh; }
 
-/* Organiza verticalmente la pantalla de acceso. */
+/* Pantalla de acceso */
 .login-page {
     display: flex;
     flex-direction: column;
@@ -53,20 +38,11 @@ body {
     min-height: 100vh;
     padding: 40px 24px 24px;
     background:
-        radial-gradient(
-            ellipse at 12% 12%,
-            rgb(54 118 200 / 9%),
-            transparent 36%
-        ),
-        radial-gradient(
-            ellipse at 90% 90%,
-            rgb(22 59 112 / 7%),
-            transparent 34%
-        ),
+        radial-gradient(ellipse at 12% 12%, rgb(54 118 200 / 9%), transparent 36%),
+        radial-gradient(ellipse at 90% 90%, rgb(22 59 112 / 7%), transparent 34%),
         var(--color-background);
 }
 
-/* Identifica visualmente la aplicación y su marca. */
 .login-brand {
     display: flex;
     align-items: center;
@@ -97,7 +73,6 @@ body {
     font-size: 12px;
 }
 
-/* Define la tarjeta central de acceso. */
 .login-card {
     width: 100%;
     max-width: 430px;
@@ -108,9 +83,7 @@ body {
     box-shadow: var(--shadow-card);
 }
 
-.login-heading {
-    margin-bottom: 30px;
-}
+.login-heading { margin-bottom: 30px; }
 
 .eyebrow {
     color: var(--color-accent);
@@ -133,18 +106,13 @@ body {
     line-height: 1.7;
 }
 
-/* Mantiene uniformes los campos del formulario. */
-.login-form {
+.login-form, .form-group {
     display: flex;
     flex-direction: column;
-    gap: 20px;
 }
 
-.form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
+.login-form { gap: 20px; }
+.form-group { gap: 8px; }
 
 .form-group label {
     font-size: 13px;
@@ -164,16 +132,13 @@ body {
     font-size: 13px;
 }
 
-.form-group input::placeholder {
-    color: #94a3b8;
-}
+.form-group input::placeholder { color: #94a3b8; }
 
 .form-group input:disabled {
     cursor: not-allowed;
     opacity: 0.8;
 }
 
-/* Define el botón principal y sus estados visuales. */
 .button {
     display: flex;
     align-items: center;
@@ -207,7 +172,6 @@ body {
     text-align: center;
 }
 
-/* Presenta información institucional al pie de la pantalla. */
 .login-footer {
     display: flex;
     justify-content: space-between;
@@ -219,39 +183,13 @@ body {
     font-size: 10px;
 }
 
-/* Ajusta los espacios para dispositivos móviles. */
-@media (max-width: 480px) {
-    .login-page {
-        padding: 28px 16px 20px;
-    }
-
-    .login-brand {
-        margin-bottom: 22px;
-    }
-
-    .login-card {
-        padding: 27px 22px;
-        border-radius: 16px;
-    }
-
-    .login-footer {
-        flex-wrap: wrap;
-        line-height: 1.6;
-    }
-}
-
-
-/* =========================================================
-   Estructura del área privada
-   ========================================================= */
-
+/* Encabezado del panel */
 .app-shell--dashboard {
     display: flex;
     flex-direction: column;
     min-height: calc(100vh - 80px);
 }
 
-/* Encabezado principal del panel administrativo. */
 .dashboard-header {
     position: relative;
     z-index: 1;
@@ -278,10 +216,10 @@ body {
     color: inherit;
     text-decoration: none;
 }
-/* Ajusta el tamaño del logo en el encabezado administrativo. */
+
 .dashboard-brand .brand-mark {
-    width: 48px;
-    height: 48px;
+    width: 60px;
+    height: 60px;
 }
 
 .dashboard-brand__text {
@@ -324,9 +262,7 @@ body {
     font-weight: 700;
 }
 
-.dashboard-user form {
-    margin: 0;
-}
+.dashboard-user form { margin: 0; }
 
 .button-logout {
     display: inline-flex;
@@ -345,23 +281,20 @@ body {
     cursor: pointer;
 }
 
-.button-logout:hover {
-    background: var(--color-background);
-}
+.button-logout:hover { background: var(--color-background); }
 
-.button-logout:focus-visible,
-.dashboard-brand:focus-visible {
+.button-logout:focus-visible, .dashboard-brand:focus-visible {
     outline: 3px solid var(--color-accent);
     outline-offset: 3px;
 }
 
-/* Contenido principal del dashboard. */
+/* Contenido del panel */
 .dashboard-page {
+    flex: 1;
     width: 100%;
     max-width: 1368px;
     margin: 0 auto;
     padding: 42px 36px 52px;
-    flex: 1;
 }
 
 .dashboard-welcome {
@@ -375,11 +308,7 @@ body {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
     background:
-        radial-gradient(
-            ellipse at 100% 0,
-            rgb(54 118 200 / 13%),
-            transparent 45%
-        ),
+        radial-gradient(ellipse at 100% 0, rgb(54 118 200 / 13%), transparent 45%),
         var(--color-surface);
     box-shadow: var(--shadow-card);
 }
@@ -398,7 +327,6 @@ body {
     line-height: 1.8;
 }
 
-/* Presenta el logotipo sin fondo ni decoración en la bienvenida. */
 .dashboard-welcome__logo {
     display: block;
     width: 112px;
@@ -407,14 +335,8 @@ body {
     object-fit: contain;
 }
 
-/* Presentación de las etapas previstas del proceso. */
-.dashboard-section {
-    margin-bottom: 30px;
-}
-
-.dashboard-section__heading {
-    margin-bottom: 20px;
-}
+.dashboard-section { margin-bottom: 30px; }
+.dashboard-section__heading { margin-bottom: 20px; }
 
 .dashboard-section__heading h2 {
     margin: 0 0 8px;
@@ -429,6 +351,7 @@ body {
     line-height: 1.7;
 }
 
+/* Etapas del proceso */
 .workflow-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -492,7 +415,7 @@ body {
     font-weight: 700;
 }
 
-/* Aviso informativo sobre el estado actual del proyecto. */
+/* Avisos */
 .dashboard-notice {
     display: flex;
     align-items: flex-start;
@@ -528,7 +451,7 @@ body {
     line-height: 1.8;
 }
 
-/* Pie de página exclusivo del área privada. */
+/* Pie del panel */
 .dashboard-footer {
     border-top: 1px solid var(--color-border);
     background: var(--color-surface);
@@ -547,75 +470,7 @@ body {
     font-size: 11px;
 }
 
-/* Adaptación del panel a tabletas y teléfonos. */
-@media (max-width: 900px) {
-    .workflow-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .workflow-card p {
-        min-height: 0;
-    }
-
-    .dashboard-page {
-        padding: 30px 24px 40px;
-    }
-
-    .dashboard-header__inner {
-        padding-right: 24px;
-        padding-left: 24px;
-    }
-}
-
-@media (max-width: 600px) {
-    .dashboard-header__inner {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 18px;
-        padding: 20px;
-    }
-
-    .dashboard-user {
-        justify-content: space-between;
-        width: 100%;
-        gap: 12px;
-    }
-
-    .dashboard-user__identity {
-        text-align: left;
-    }
-
-    .dashboard-page {
-        padding: 24px 16px 32px;
-    }
-
-    .dashboard-welcome {
-        align-items: flex-start;
-        padding: 25px 22px;
-    }
-
-    /* Presenta el logotipo sin fondo ni decoración en la bienvenida. */
-.dashboard-welcome__logo {
-    display: block;
-    width: 112px;
-    height: 112px;
-    flex-shrink: 0;
-    object-fit: contain;
-}
-
-    .dashboard-footer__inner {
-        align-items: flex-start;
-        flex-direction: column;
-        gap: 7px;
-        padding: 18px 20px;
-    }
-}
-
-
-/* =========================================================
-   Formulario de carga temporal de Excel
-   ========================================================= */
-
+/* Carga de Excel */
 .upload-panel {
     margin-bottom: 32px;
     padding: 30px;
@@ -625,9 +480,7 @@ body {
     box-shadow: var(--shadow-card);
 }
 
-.upload-panel__heading {
-    margin-bottom: 24px;
-}
+.upload-panel__heading { margin-bottom: 24px; }
 
 .upload-panel__heading h2 {
     margin: 10px 0;
@@ -680,14 +533,8 @@ body {
     line-height: 1.6;
 }
 
-.upload-form .button {
-    min-width: 190px;
-    cursor: pointer;
-}
-
-.upload-form .button:hover {
-    background: var(--color-primary-hover);
-}
+.upload-form .button { min-width: 190px; cursor: pointer; }
+.upload-form .button:hover { background: var(--color-primary-hover); }
 
 .upload-form .button:focus-visible,
 .upload-form__file input:focus-visible {
@@ -725,9 +572,7 @@ body {
     overflow-wrap: anywhere;
 }
 
-.upload-current strong {
-    font-size: 13px;
-}
+.upload-current strong { font-size: 13px; }
 
 .upload-current p {
     margin: 8px 0 0;
@@ -736,29 +581,286 @@ body {
     line-height: 1.6;
 }
 
-@media (max-width: 700px) {
-    .upload-panel {
-        padding: 22px 18px;
-    }
-
-    .upload-form {
-        grid-template-columns: 1fr;
-    }
-
-    .upload-form .button {
-        width: 100%;
-    }
+/* Exportación y vista previa */
+.export-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    margin: 24px 0 30px;
 }
 
-
-
-/* Ajusta el tamaño de los logotipos principales. */
-.login-brand .brand-mark {
-    width: 68px;
-    height: 68px;
+.export-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    min-width: 0;
+    padding: 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    color: var(--color-text);
+    background: var(--color-surface);
+    text-decoration: none;
+    box-shadow: 0 8px 24px rgb(22 59 112 / 5%);
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
-.dashboard-brand .brand-mark {
-    width: 60px;
+.export-card:hover {
+    transform: translateY(-2px);
+    border-color: #c7d7ed;
+    box-shadow: 0 14px 30px rgb(22 59 112 / 10%);
+}
+
+.export-card:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+}
+
+.export-card__icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 54px;
+    width: 54px;
     height: 60px;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: .2px;
+    box-shadow: inset 0 -4px rgb(0 0 0 / 8%);
+}
+
+.export-card--excel .export-card__icon { background: #217346; }
+.export-card--pdf .export-card__icon { background: #c83b3b; }
+.export-card__content { flex: 1; min-width: 0; }
+
+.export-card__eyebrow {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--color-muted);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
+.export-card__title {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 14px;
+    font-weight: 750;
+    line-height: 1.4;
+}
+
+.export-card__description {
+    display: block;
+    color: var(--color-muted);
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+.export-card__action {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    color: var(--color-primary);
+    font-size: 11px;
+    font-weight: 750;
+}
+
+.export-card__arrow {
+    flex-shrink: 0;
+    color: #94a3b8;
+    font-size: 20px;
+}
+
+/* Adaptación responsive */
+@media (max-width: 900px) {
+    .workflow-grid { grid-template-columns: 1fr; }
+    .workflow-card p { min-height: 0; }
+    .dashboard-page { padding: 30px 24px 40px; }
+    .dashboard-header__inner { padding-right: 24px; padding-left: 24px; }
+}
+
+@media (max-width: 700px) {
+    .upload-panel { padding: 22px 18px; }
+    .upload-form, .export-actions { grid-template-columns: 1fr; }
+    .upload-form .button { width: 100%; }
+    .export-actions { gap: 12px; }
+    .export-card { padding: 16px; }
+}
+
+@media (max-width: 600px) {
+    .dashboard-header__inner {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 18px;
+        padding: 20px;
+    }
+
+    .dashboard-user {
+        justify-content: space-between;
+        width: 100%;
+        gap: 12px;
+    }
+
+    .dashboard-user__identity { text-align: left; }
+    .dashboard-page { padding: 24px 16px 32px; }
+    .dashboard-welcome { align-items: flex-start; padding: 25px 22px; }
+
+    .dashboard-footer__inner {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 7px;
+        padding: 18px 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-page { padding: 28px 16px 20px; }
+    .login-brand { margin-bottom: 22px; }
+    .login-card { padding: 27px 22px; border-radius: 16px; }
+    .login-footer { flex-wrap: wrap; line-height: 1.6; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .export-card { transition: none; }
+    .export-card:hover { transform: none; }
+}
+
+/* Tamaño de los logotipos */
+.login-brand .brand-mark { width: 68px; height: 68px; }
+
+
+/* =========================================================
+   Indicador de carga de las operaciones de Randomix
+   ========================================================= */
+
+.loading-overlay[hidden] {
+    display: none !important;
+}
+
+.loading-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+    background: rgb(15 30 52 / 62%);
+    backdrop-filter: blur(4px);
+}
+
+.loading-overlay__panel {
+    width: min(100%, 420px);
+    padding: 36px 30px;
+    text-align: center;
+    background: #ffffff;
+    border: 1px solid #e0e7f0;
+    border-radius: 20px;
+    box-shadow: 0 24px 70px rgb(0 0 0 / 22%);
+    animation: loading-panel-appear 180ms ease-out;
+}
+
+.loading-overlay__spinner {
+    width: 54px;
+    height: 54px;
+    margin: 0 auto 24px;
+    border: 5px solid #e4ebf5;
+    border-top-color: #214f91;
+    border-radius: 50%;
+    animation: loading-spin 800ms linear infinite;
+}
+
+.loading-overlay__title {
+    margin: 0 0 12px;
+    color: #163b70;
+    font-size: 21px;
+    line-height: 1.4;
+}
+
+.loading-overlay__description {
+    margin: 0;
+    color: #53657c;
+    font-size: 14px;
+    line-height: 1.7;
+}
+
+.loading-overlay__progress {
+    height: 5px;
+    margin-top: 25px;
+    overflow: hidden;
+    background: #e8eef7;
+    border-radius: 99px;
+}
+
+.loading-overlay__progress span {
+    display: block;
+    width: 35%;
+    height: 100%;
+    background: #214f91;
+    border-radius: inherit;
+    animation: loading-progress 1.4s ease-in-out infinite;
+}
+
+.loading-overlay__footnote {
+    margin: 17px 0 0;
+    color: #758398;
+    font-size: 12px;
+    line-height: 1.6;
+}
+
+body.is-loading {
+    overflow: hidden;
+}
+
+@keyframes loading-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes loading-progress {
+    0% {
+        transform: translateX(-110%);
+    }
+
+    100% {
+        transform: translateX(310%);
+    }
+}
+
+@keyframes loading-panel-appear {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (max-width: 480px) {
+    .loading-overlay__panel {
+        padding: 30px 22px;
+    }
+
+    .loading-overlay__title {
+        font-size: 19px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loading-overlay__spinner,
+    .loading-overlay__progress span,
+    .loading-overlay__panel {
+        animation: none;
+    }
+
+    .loading-overlay__spinner {
+        border-top-color: #214f91;
+        border-right-color: #214f91;
+    }
 }

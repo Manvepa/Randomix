@@ -37,5 +37,8 @@ $showAuthenticatedLayout = $showAuthenticatedLayout ?? false;
     <?php if ($showAuthenticatedLayout): ?>
         <?php require __DIR__ . '/footer.php'; ?>
     <?php endif; ?>
+
+    <!-- Gestiona el indicador de carga de los formularios. -->
+    <script src="assets/js/loading-overlay.js" defer></script>
 </body>
 </html>

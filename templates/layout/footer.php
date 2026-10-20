@@ -8,7 +8,7 @@ declare(strict_types=1);
         <span>Randomix</span>
 
         <span>
-            Sistema de gestión de selección aleatoria
+            © 2026 Alcaldía Municipal de Girón
         </span>
     </div>
 </footer>
