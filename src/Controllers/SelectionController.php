@@ -8,6 +8,7 @@ use Randomix\Import\ExcelReader;
 use Randomix\Import\StudentRecordsProcessor;
 use Randomix\Services\SelectionService;
 use Randomix\Validators\ExcelHeadersValidator;
+use Randomix\Services\SurnameMatchService;
 use InvalidArgumentException;
 use RuntimeException;
 use Throwable;
@@ -21,6 +22,8 @@ final class SelectionController
     private StudentRecordsProcessor $recordsProcessor;
 
     private SelectionService $selectionService;
+
+    private SurnameMatchService $surnameMatchService;
 
     private ExcelHeadersValidator $headersValidator;
 
@@ -41,6 +44,7 @@ final class SelectionController
         $this->excelReader = new ExcelReader();
         $this->recordsProcessor = new StudentRecordsProcessor();
         $this->selectionService = new SelectionService();
+        $this->surnameMatchService = new SurnameMatchService();
 
         $this->headersValidator = new ExcelHeadersValidator(
             $requiredHeaders
@@ -54,7 +58,8 @@ final class SelectionController
     public function handle(
         array $uploadedExcel,
         string $sheetName,
-        int $quantity,
+        int $beneficiaryQuantity,
+        int $alternateQuantity,
         array $sheetValidation
     ): array {
         try {
@@ -86,7 +91,7 @@ final class SelectionController
                 );
             }
 
-            
+
             // Lee las filas conservando el orden original de las columnas.
             $rows = $this->excelReader->getRows(
                 $filePath,
@@ -97,7 +102,7 @@ final class SelectionController
             $numberColumnIndex = array_search(
                 '#',
                 array_map(
-                    static fn (mixed $header): string => trim(
+                    static fn(mixed $header): string => trim(
                         (string) ($header ?? '')
                     ),
                     $headers
@@ -132,12 +137,58 @@ final class SelectionController
                 $rows
             );
 
-
-            // Realiza la selección aleatoria sin reemplazo.
+            // Realiza un único sorteo y separa beneficiarios,
+            // suplentes y registros no seleccionados.
             $result = $this->selectionService->select(
                 $records,
-                $quantity
+                $beneficiaryQuantity,
+                $alternateQuantity
             );
+
+            // Numera los beneficiarios con el prefijo B.
+            $beneficiaryRecords = $this->addSequentialNumberColumn(
+                $result['beneficiaries'],
+                'B'
+            );
+
+            // Numera los suplentes con el prefijo S.
+            $alternateRecords = $this->addSequentialNumberColumn(
+                $result['alternates'],
+                'S'
+            );
+
+            // Conserva ambos grupos en una única lista de seleccionados.
+            // Primero aparecen los beneficiarios y después los suplentes.
+            $selectedRecords = array_merge(
+                $beneficiaryRecords,
+                $alternateRecords
+            );
+
+            // Los registros restantes conservan una numeración independiente.
+            $notSelectedRecords = $this->addSequentialNumberColumn(
+                $result['not_selected']
+            );
+
+            // Detecta coincidencias de apellidos dentro del grupo seleccionado.
+            $matchingSurnameIndexes = $this->surnameMatchService
+                ->findMatchingIndexes($selectedRecords);
+
+            return [
+                'success' => true,
+                'errors' => [],
+                'sheet_name' => $sheetName,
+                'total_records' => count($records),
+                'beneficiaries_count' => count($beneficiaryRecords),
+                'alternates_count' => count($alternateRecords),
+                'selected_count' => count($selectedRecords),
+                'not_selected_count' => count($notSelectedRecords),
+                'beneficiaries' => $beneficiaryRecords,
+                'alternates' => $alternateRecords,
+                'selected' => $selectedRecords,
+                'not_selected' => $notSelectedRecords,
+                'selected_matching_surname_indexes' => $matchingSurnameIndexes,
+            ];
+
 
             // Agrega una numeración consecutiva independiente a cada resultado.
             $selectedRecords = $this->addSequentialNumberColumn(
@@ -148,6 +199,10 @@ final class SelectionController
                 $result['not_selected']
             );
 
+            // Identifica coincidencias de apellidos exclusivamente entre seleccionados.
+            $matchingSurnameIndexes = $this->surnameMatchService
+                ->findMatchingIndexes($selectedRecords);
+
             return [
                 'success' => true,
                 'errors' => [],
@@ -157,6 +212,7 @@ final class SelectionController
                 'not_selected_count' => count($result['not_selected']),
                 'selected' => $selectedRecords,
                 'not_selected' => $notSelectedRecords,
+                'selected_matching_surname_indexes' => $matchingSurnameIndexes,
             ];
         } catch (InvalidArgumentException | RuntimeException $exception) {
             return [
@@ -212,21 +268,28 @@ final class SelectionController
     }
 
     /**
- * Agrega una columna # al comienzo de cada registro y lo numera desde 1.
- *
- * La numeración se reinicia para cada grupo de resultados.
- *
- * @param array<int, array<string, mixed>> $records Registros del resultado.
- *
- * @return array<int, array<string, mixed>> Registros numerados.
- */
-private function addSequentialNumberColumn(array $records): array
-{
-    foreach ($records as $index => $record) {
-        // Coloca la numeración antes de las columnas originales.
-        $records[$index] = ['#' => $index + 1] + $record;
+     * Agrega la columna # al comienzo de cada registro.
+     *
+     * Permite numerar beneficiarios con B, suplentes con S
+     * y otros grupos con numeración simple.
+     *
+     * @param array<int, array<string, mixed>> $records Registros del grupo.
+     * @param string $prefix Prefijo opcional para la numeración.
+     *
+     * @return array<int, array<string, mixed>> Registros numerados.
+     */
+    private function addSequentialNumberColumn(
+        array $records,
+        string $prefix = ''
+    ): array {
+        foreach ($records as $index => $record) {
+            // Construye el identificador y lo coloca antes de los datos.
+            $number = $prefix . ($index + 1);
+
+            $records[$index] = ['#' => $number] + $record;
+        }
+
+        return $records;
     }
 
-    return $records;
-}
 }

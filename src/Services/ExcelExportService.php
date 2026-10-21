@@ -23,8 +23,12 @@ final class ExcelExportService
      *
      * @throws RuntimeException Si los datos o la generación no son válidos.
      */
-    public function generate(array $headers, array $records): string
-    {
+    public function generate(
+        array $headers,
+        array $records,
+        array $highlightedIndexes = [],
+        array $alternateIndexes = []
+    ): string {
         if ($headers === []) {
             throw new RuntimeException(
                 'No hay encabezados disponibles para generar el Excel.'
@@ -159,6 +163,71 @@ final class ExcelExportService
 
             // Formato de encabezados.
             $lastColumn = $sheet->getHighestColumn();
+
+
+
+            // Valida los índices de hermanos y suplentes y prepara búsquedas rápidas.
+            $highlightedIndexMap = [];
+            $alternateIndexMap = [];
+
+            foreach (
+                [
+                    $highlightedIndexes,
+                    $alternateIndexes,
+                ] as $indexes
+            ) {
+                foreach ($indexes as $index) {
+                    if (
+                        !is_int($index)
+                        || $index < 0
+                        || $index >= count($records)
+                    ) {
+                        throw new RuntimeException(
+                            'Los índices de filas para resaltar no son válidos.'
+                        );
+                    }
+                }
+            }
+
+            foreach ($highlightedIndexes as $index) {
+                $highlightedIndexMap[$index] = true;
+            }
+
+            foreach ($alternateIndexes as $index) {
+                $alternateIndexMap[$index] = true;
+            }
+
+            // Aplica un único color por fila: el amarillo de hermanos tiene prioridad.
+            foreach (array_keys($records) as $recordIndex) {
+                $color = null;
+
+                if (isset($highlightedIndexMap[$recordIndex])) {
+                    $color = 'FFFFF2CC';
+                } elseif (isset($alternateIndexMap[$recordIndex])) {
+                    $color = 'FFD9EAF7';
+                }
+
+                if ($color === null) {
+                    continue;
+                }
+
+                $excelRow = $recordIndex + 2;
+
+                $sheet->getStyle(
+                    'A' . $excelRow . ':' . $lastColumn . $excelRow
+                )
+                    ->getFill()
+                    ->setFillType(
+                        \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID
+                    );
+
+                $sheet->getStyle(
+                    'A' . $excelRow . ':' . $lastColumn . $excelRow
+                )
+                    ->getFill()
+                    ->getStartColor()
+                    ->setARGB($color);
+            }
 
             $sheet->getStyle('A1:' . $lastColumn . '1')
                 ->getFont()

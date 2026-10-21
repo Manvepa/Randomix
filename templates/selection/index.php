@@ -28,7 +28,8 @@ ob_start();
             <h1>Bienvenido a Randomix</h1>
             <p>Administra los procesos de selección aleatoria de estudiantes desde un solo lugar.</p>
         </div>
-        <img class="brand-mark" src="assets/images/randomix-logo.png" alt="" aria-hidden="true" style="width: 100px; height: auto;">
+        <img class="brand-mark" src="assets/images/randomix-logo.png" alt="" aria-hidden="true"
+            style="width: 100px; height: auto;">
     </div>
 
     <!-- Presenta las etapas del proceso de selección. -->
@@ -88,7 +89,8 @@ ob_start();
         <!-- Envía el archivo al controlador de carga. -->
         <form class="upload-form" action="index.php?page=dashboard" method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="upload_excel">
-            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string) $_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+            <input type="hidden" name="csrf_token"
+                value="<?= htmlspecialchars((string) $_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
 
             <div class="upload-form__file">
                 <label for="excel_file">Archivo Excel</label>
@@ -132,14 +134,16 @@ ob_start();
                 <?php if (count($excelSheets) > 0): ?>
                     <form class="upload-form" action="index.php?page=dashboard" method="POST">
                         <input type="hidden" name="action" value="validate_sheet">
-                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string) $_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="csrf_token"
+                            value="<?= htmlspecialchars((string) $_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
 
                         <div class="upload-form__file">
                             <label for="sheet_name">Hoja del archivo</label>
                             <select id="sheet_name" name="sheet_name" required>
                                 <option value="">Selecciona una hoja</option>
                                 <?php foreach ($excelSheets as $sheet): ?>
-                                    <option value="<?= htmlspecialchars((string) $sheet, ENT_QUOTES, 'UTF-8') ?>" <?= (is_array($sheetValidation) && ($sheetValidation['sheet_name'] ?? null) === $sheet) ? 'selected' : '' ?>>
+                                    <option value="<?= htmlspecialchars((string) $sheet, ENT_QUOTES, 'UTF-8') ?>"
+                                        <?= (is_array($sheetValidation) && ($sheetValidation['sheet_name'] ?? null) === $sheet) ? 'selected' : '' ?>>
                                         <?= htmlspecialchars((string) $sheet, ENT_QUOTES, 'UTF-8') ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -224,13 +228,32 @@ ob_start();
 
                 <form class="upload-form" action="index.php?page=dashboard" method="POST">
                     <input type="hidden" name="action" value="execute_selection">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars((string) $_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="sheet_name" value="<?= htmlspecialchars((string) $sheetValidation['sheet_name'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="csrf_token"
+                        value="<?= htmlspecialchars((string) $_SESSION['csrf_token'], ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="sheet_name"
+                        value="<?= htmlspecialchars((string) $sheetValidation['sheet_name'], ENT_QUOTES, 'UTF-8') ?>">
+
 
                     <div class="upload-form__file">
-                        <label for="selection_quantity">Cantidad de estudiantes</label>
-                        <input id="selection_quantity" type="number" name="quantity" min="0" step="1" required>
+                        <label for="beneficiary_quantity">Cantidad de beneficiarios</label>
+                        <input id="beneficiary_quantity" type="number" name="beneficiary_quantity" min="0" step="1"
+                            value="0" required>
                     </div>
+
+                    <div class="upload-form__file">
+                        <label for="alternate_quantity">Cantidad de suplentes</label>
+                        <input id="alternate_quantity" type="number" name="alternate_quantity" min="0" step="1" value="0"
+                            required>
+                    </div>
+
+                    <div class="upload-form__file">
+                        <label for="total_quantity">Cantidad total del sorteo</label>
+                        <input id="total_quantity" type="number" value="0" readonly aria-describedby="total_quantity_help">
+                        <small id="total_quantity_help">
+                            Suma automática de beneficiarios y suplentes.
+                        </small>
+                    </div>
+
 
                     <button class="button button-primary" type="submit">Ejecutar selección</button>
                 </form>
@@ -262,6 +285,11 @@ ob_start();
                 $selectedRecords = $selectionResult['selected'] ?? [];
                 $notSelectedRecords = $selectionResult['not_selected'] ?? [];
 
+                // Cuenta los estudiantes seleccionados con coincidencias de apellidos.
+                $hermanosEncontrados = count(
+                    $selectionResult['selected_matching_surname_indexes'] ?? []
+                );
+
                 // Obtiene los encabezados originales incluso si no hubo seleccionados.
                 $allRecords = array_merge($selectedRecords, $notSelectedRecords);
                 $resultHeaders = $allRecords !== [] ? array_keys($allRecords[0]) : [];
@@ -289,6 +317,8 @@ ob_start();
                     <p><strong>Total de estudiantes:</strong> <?= (int) $selectionResult['total_records'] ?></p>
                     <p><strong>Seleccionados:</strong> <?= (int) $selectionResult['selected_count'] ?></p>
                     <p><strong>No seleccionados:</strong> <?= (int) $selectionResult['not_selected_count'] ?></p>
+                    <p><strong>Hermanos identificados:</strong> <?= (int) $hermanosEncontrados ?></p>
+                    </p>
                 </div>
 
                 <!-- Permite descargar los resultados de ambos grupos en Excel. -->
@@ -300,7 +330,8 @@ ob_start();
                         <span class="export-card__content">
                             <span class="export-card__eyebrow">Microsoft Excel</span>
                             <span class="export-card__title">Estudiantes seleccionados</span>
-                            <span class="export-card__description">Descarga los registros elegidos en una hoja de cálculo.</span>
+                            <span class="export-card__description">Descarga los registros elegidos en una hoja de
+                                cálculo.</span>
                             <span class="export-card__action">Descargar Excel <span aria-hidden="true">↓</span></span>
                         </span>
                         <span class="export-card__arrow" aria-hidden="true">›</span>
@@ -317,18 +348,21 @@ ob_start();
                         <span class="export-card__arrow" aria-hidden="true">›</span>
                     </a>
 
-                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=selected" target="_blank" rel="noopener noreferrer">
+                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=selected" target="_blank"
+                        rel="noopener noreferrer">
                         <span class="export-card__icon" aria-hidden="true">PDF</span>
                         <span class="export-card__content">
                             <span class="export-card__eyebrow">Visualizar Documento PDF</span>
                             <span class="export-card__title">Estudiantes Seleccionados</span>
-                            <span class="export-card__description">Abre la vista previa del documento con los estudiantes elegidos.</span>
+                            <span class="export-card__description">Abre la vista previa del documento con los estudiantes
+                                elegidos.</span>
                             <span class="export-card__action">Visualizar PDF <span aria-hidden="true">↗</span></span>
                         </span>
                         <span class="export-card__arrow" aria-hidden="true">›</span>
                     </a>
 
-                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=not_selected" target="_blank" rel="noopener noreferrer">
+                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=not_selected" target="_blank"
+                        rel="noopener noreferrer">
                         <span class="export-card__icon" aria-hidden="true">PDF</span>
                         <span class="export-card__content">
                             <span class="export-card__eyebrow">Visualizar Documento PDF</span>
@@ -348,7 +382,8 @@ ob_start();
         <span class="dashboard-notice__icon" aria-hidden="true">i</span>
         <div>
             <h2>Estado del sistema</h2>
-            <p>La autenticación, la carga y validación del Excel, la selección aleatoria y la exportación de resultados a Excel y PDF están disponibles.</p>
+            <p>La autenticación, la carga y validación del Excel, la selección aleatoria y la exportación de resultados
+                a Excel y PDF están disponibles.</p>
         </div>
     </aside>
 </section>

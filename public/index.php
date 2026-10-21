@@ -170,14 +170,49 @@ if (
 
     $headers = array_keys($allRecords[0]);
 
+
     // Selecciona el grupo solicitado y genera el archivo XLSX.
     $records = $exportType === 'selected'
         ? $selectedRecords
         : $notSelectedRecords;
 
+
+    // Obtiene los índices de hermanos únicamente para el Excel seleccionado.
+    $highlightedIndexes = $exportType === 'selected'
+        ? ($selectionResult['selected_matching_surname_indexes'] ?? [])
+        : [];
+
+    // Calcula los índices de suplentes dentro del conjunto seleccionado.
+    $alternateIndexes = [];
+
+    if ($exportType === 'selected') {
+        $beneficiariesCount = count(
+            $selectionResult['beneficiaries'] ?? []
+        );
+
+        $alternatesCount = count(
+            $selectionResult['alternates'] ?? []
+        );
+
+        for (
+            $index = $beneficiariesCount;
+            $index < $beneficiariesCount + $alternatesCount;
+            $index++
+        ) {
+            $alternateIndexes[] = $index;
+        }
+    }
+
+
     try {
         $exportService = new ExcelExportService();
-        $content = $exportService->generate($headers, $records);
+        $content = $exportService->generate(
+            $headers,
+            $records,
+            $highlightedIndexes,
+            $alternateIndexes
+        );
+
     } catch (Throwable $exception) {
         error_log($exception->__toString());
 
@@ -273,6 +308,33 @@ if (
         ? $selectedRecords
         : $notSelectedRecords;
 
+
+    // Resalta coincidencias de apellidos únicamente en los seleccionados.
+    $highlightedIndexes = $pdfType === 'selected'
+        ? ($selectionResult['selected_matching_surname_indexes'] ?? [])
+        : [];
+
+    // Calcula los índices de suplentes dentro del conjunto seleccionado.
+    $alternateIndexes = [];
+
+    if ($pdfType === 'selected') {
+        $beneficiariesCount = count(
+            $selectionResult['beneficiaries'] ?? []
+        );
+
+        $alternatesCount = count(
+            $selectionResult['alternates'] ?? []
+        );
+
+        for (
+            $index = $beneficiariesCount;
+            $index < $beneficiariesCount + $alternatesCount;
+            $index++
+        ) {
+            $alternateIndexes[] = $index;
+        }
+    }
+
     $title = $pdfType === 'selected'
         ? 'Estudiantes seleccionados'
         : 'Estudiantes no seleccionados';
@@ -287,7 +349,9 @@ if (
         $content = $pdfService->generate(
             $headers,
             $records,
-            $title
+            $title,
+            $highlightedIndexes,
+            $alternateIndexes
         );
     } catch (Throwable $exception) {
         // Registra el error técnico sin exponer detalles internos.
@@ -488,7 +552,7 @@ if (
     } else {
         $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
         $sheetName = $_POST['sheet_name'] ?? '';
-        
+
         // Descarta resultados anteriores al iniciar una nueva validación.
         unset($_SESSION['selection_result']);
 
@@ -547,33 +611,41 @@ if (
             ],
         ];
     } else {
+
         $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
         $sheetValidation = $_SESSION['sheet_validation'] ?? null;
         $sheetName = $_POST['sheet_name'] ?? '';
-        $quantityInput = $_POST['quantity'] ?? null;
 
-        // Verifica que exista un archivo, una hoja validada y una cantidad entera.
+        // Recibe las cantidades de beneficiarios y suplentes.
+        $beneficiaryInput = $_POST['beneficiary_quantity'] ?? null;
+        $alternateInput = $_POST['alternate_quantity'] ?? null;
+
+        // Verifica que el archivo, la hoja y ambas cantidades sean válidos.
         if (
             !is_array($uploadedExcel)
             || !is_array($sheetValidation)
             || !is_string($sheetName)
             || trim($sheetName) === ''
-            || !is_string($quantityInput)
-            || $quantityInput === ''
-            || !ctype_digit($quantityInput)
+            || !is_string($beneficiaryInput)
+            || $beneficiaryInput === ''
+            || !ctype_digit($beneficiaryInput)
+            || !is_string($alternateInput)
+            || $alternateInput === ''
+            || !ctype_digit($alternateInput)
         ) {
             $_SESSION['selection_result'] = [
                 'success' => false,
                 'errors' => [
-                    'Debes validar una hoja y especificar una cantidad entera válida.',
+                    'Debes validar una hoja e indicar cantidades enteras válidas para beneficiarios y suplentes.',
                 ],
             ];
         } else {
-            // Ejecuta la selección mediante el controlador especializado.
+            // Ejecuta el sorteo con las dos cantidades independientes.
             $_SESSION['selection_result'] = $selectionController->handle(
                 $uploadedExcel,
                 $sheetName,
-                (int) $quantityInput,
+                (int) $beneficiaryInput,
+                (int) $alternateInput,
                 $sheetValidation
             );
         }

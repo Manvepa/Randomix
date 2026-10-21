@@ -58,6 +58,58 @@
             '.loading-overlay__description'
         );
 
+
+        // Obtiene los campos que participan en el cálculo del sorteo.
+        const beneficiaryInput = document.getElementById(
+            'beneficiary_quantity'
+        );
+        const alternateInput = document.getElementById(
+            'alternate_quantity'
+        );
+        const totalInput = document.getElementById('total_quantity');
+
+        // Actualiza el total cada vez que cambia alguna cantidad.
+        function updateSelectionTotal() {
+            if (
+                !(beneficiaryInput instanceof HTMLInputElement)
+                || !(alternateInput instanceof HTMLInputElement)
+                || !(totalInput instanceof HTMLInputElement)
+            ) {
+                return;
+            }
+
+            const beneficiaries = Number(beneficiaryInput.value);
+            const alternates = Number(alternateInput.value);
+
+            // Evita mostrar resultados incorrectos ante valores inválidos.
+            if (
+                beneficiaryInput.value === ''
+                || alternateInput.value === ''
+                || !Number.isSafeInteger(beneficiaries)
+                || !Number.isSafeInteger(alternates)
+                || beneficiaries < 0
+                || alternates < 0
+            ) {
+                totalInput.value = '';
+                return;
+            }
+
+            const total = beneficiaries + alternates;
+
+            // Evita desbordamientos al sumar cantidades muy grandes.
+            totalInput.value = Number.isSafeInteger(total)
+                ? String(total)
+                : '';
+        }
+
+        // Escucha cambios al escribir o modificar los controles numéricos.
+        beneficiaryInput?.addEventListener('input', updateSelectionTotal);
+        alternateInput?.addEventListener('input', updateSelectionTotal);
+
+        // Calcula el total inicial cuando se carga la página.
+        updateSelectionTotal();
+
+
         document.addEventListener('submit', (event) => {
             const form = event.target;
 

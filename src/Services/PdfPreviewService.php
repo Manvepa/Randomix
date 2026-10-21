@@ -30,8 +30,13 @@ final class PdfPreviewService
      *
      * @throws RuntimeException Si la estructura o generación no es válida.
      */
-    public function generate(array $headers, array $records, string $title): string
-    {
+    public function generate(
+        array $headers,
+        array $records,
+        string $title,
+        array $highlightedIndexes = [],
+        array $alternateIndexes = []
+    ): string {
         $this->validateData($headers, $records);
 
         // Comprueba que las fuentes generadas por tc-lib-pdf estén disponibles.
@@ -55,6 +60,24 @@ final class PdfPreviewService
             'all' => [
                 'lineWidth' => 0.1,
                 'lineColor' => '#808080',
+            ],
+        ];
+
+        // Define el estilo de las celdas de estudiantes coincidentes.
+        $highlightedCellStyles = [
+            'all' => [
+                'lineWidth' => 0.1,
+                'lineColor' => '#808080',
+                'fillColor' => '#FFF2CC',
+            ],
+        ];
+
+                // Define el estilo azul para los suplentes que no son hermanos.
+        $alternateCellStyles = [
+            'all' => [
+                'lineWidth' => 0.1,
+                'lineColor' => '#808080',
+                'fillColor' => '#D9EAF7',
             ],
         ];
 
@@ -87,15 +110,7 @@ final class PdfPreviewService
         $y = 0.0;
 
         // Agrega una página y dibuja nuevamente los encabezados.
-        $startPage = function () use (
-            $pdf,
-            $pageConfig,
-            $headers,
-            $title,
-            $cellStyles,
-            $columnWidth,
-            $headerHeight
-        ): float {
+        $startPage = function () use ($pdf, $pageConfig, $headers, $title, $cellStyles, $columnWidth, $headerHeight): float {
             $page = $pdf->addPage($pageConfig);
 
             $titleFont = $pdf->font->insert(
@@ -112,8 +127,8 @@ final class PdfPreviewService
                 posx: self::MARGIN_LEFT,
                 posy: 4.0,
                 width: self::PAGE_WIDTH
-                    - self::MARGIN_LEFT
-                    - self::MARGIN_RIGHT,
+                - self::MARGIN_LEFT
+                - self::MARGIN_RIGHT,
                 height: 5.0,
                 drawcell: false
             );
@@ -162,7 +177,7 @@ final class PdfPreviewService
         $pdf->page->addContent($bodyFont['out']);
 
         // Dibuja los registros respetando el orden original de las columnas.
-        foreach ($records as $record) {
+        foreach (array_values($records) as $rowIndex => $record) {
             if (!is_array($record)) {
                 throw new RuntimeException(
                     'Uno de los registros no tiene una estructura válida.'
@@ -187,6 +202,15 @@ final class PdfPreviewService
                 $pdf->page->addContent($bodyFont['out']);
             }
 
+            // Prioriza el resaltado amarillo de hermanos sobre el azul de suplentes.
+            if (in_array($rowIndex, $highlightedIndexes, true)) {
+                $rowStyles = $highlightedCellStyles;
+            } elseif (in_array($rowIndex, $alternateIndexes, true)) {
+                $rowStyles = $alternateCellStyles;
+            } else {
+                $rowStyles = $cellStyles;
+            }
+
             $x = self::MARGIN_LEFT;
 
             foreach ($values as $value) {
@@ -198,7 +222,7 @@ final class PdfPreviewService
                     height: $rowHeight,
                     valign: 'T',
                     halign: 'L',
-                    styles: $cellStyles,
+                    styles: $rowStyles,
                     drawcell: true
                 );
 

@@ -42,42 +42,50 @@ $students = [
     ['doc' => '005', 'nombre' => 'Laura'],
 ];
 
-// Prueba 1: selecciona la cantidad solicitada.
-$result = $service->select($students, 3);
+// Prueba 1: respeta las cantidades de beneficiarios y suplentes.
+$result = $service->select($students, 3, 1);
 
 if (
-    count($result['selected']) !== 3
-    || count($result['not_selected']) !== 2
+    count($result['beneficiaries']) !== 3
+    || count($result['alternates']) !== 1
+    || count($result['not_selected']) !== 1
 ) {
     throw new RuntimeException(
-        'No se respetó la cantidad solicitada.'
+        'No se respetaron las cantidades de los tres grupos.'
     );
 }
 
-// Prueba 2: conserva todos los registros entre ambos grupos.
-if (
-    count($result['selected']) + count($result['not_selected'])
-    !== count($students)
-) {
+// Prueba 2: conserva todos los registros entre los tres grupos.
+$totalDistributed = count($result['beneficiaries'])
+    + count($result['alternates'])
+    + count($result['not_selected']);
+
+if ($totalDistributed !== count($students)) {
     throw new RuntimeException(
         'Se perdieron registros durante la selección.'
     );
 }
 
-// Prueba 3: cada registro seleccionado debe proceder del conjunto original.
-$originalDocuments = array_column($students, 'doc');
-$selectedDocuments = array_column($result['selected'], 'doc');
+// Prueba 3: ningún registro aparece en más de un grupo.
+$distributedDocuments = array_merge(
+    array_column($result['beneficiaries'], 'doc'),
+    array_column($result['alternates'], 'doc'),
+    array_column($result['not_selected'], 'doc')
+);
 
 if (
-    count($selectedDocuments)
-    !== count(array_unique($selectedDocuments))
+    count($distributedDocuments)
+    !== count(array_unique($distributedDocuments))
 ) {
     throw new RuntimeException(
-        'Se seleccionó más de una vez el mismo registro.'
+        'Un registro fue asignado a más de un grupo.'
     );
 }
 
-foreach ($selectedDocuments as $document) {
+// Prueba 4: todos los registros distribuidos pertenecen al conjunto original.
+$originalDocuments = array_column($students, 'doc');
+
+foreach ($distributedDocuments as $document) {
     if (!in_array($document, $originalDocuments, true)) {
         throw new RuntimeException(
             'Se encontró un registro que no pertenece al conjunto original.'
@@ -85,82 +93,98 @@ foreach ($selectedDocuments as $document) {
     }
 }
 
-// Prueba 4: solicitar cero deja todos los registros sin seleccionar.
-$result = $service->select($students, 0);
+// Prueba 5: con ambas cantidades en cero, todos quedan sin seleccionar.
+$result = $service->select($students, 0, 0);
 
 if (
-    $result['selected'] !== []
+    $result['beneficiaries'] !== []
+    || $result['alternates'] !== []
     || count($result['not_selected']) !== count($students)
 ) {
     throw new RuntimeException(
-        'Falló la selección de cero registros.'
+        'Falló la selección con ambas cantidades en cero.'
     );
 }
 
-// Prueba 5: solicitar todos selecciona el conjunto completo.
-$result = $service->select($students, count($students));
+// Prueba 6: permite asignar todos los registros a beneficiarios.
+$result = $service->select($students, count($students), 0);
 
 if (
-    count($result['selected']) !== count($students)
+    count($result['beneficiaries']) !== count($students)
+    || $result['alternates'] !== []
     || $result['not_selected'] !== []
 ) {
     throw new RuntimeException(
-        'Falló la selección de todos los registros.'
+        'Falló la asignación de todos los registros a beneficiarios.'
     );
 }
 
-// Prueba 6: rechaza cantidades negativas.
+// Prueba 7: permite asignar todos los registros a suplentes.
+$result = $service->select($students, 0, count($students));
+
+if (
+    $result['beneficiaries'] !== []
+    || count($result['alternates']) !== count($students)
+    || $result['not_selected'] !== []
+) {
+    throw new RuntimeException(
+        'Falló la asignación de todos los registros a suplentes.'
+    );
+}
+
+// Prueba 8: rechaza cantidades negativas.
 assertSelectionThrows(
-    fn () => $service->select($students, -1),
-    'entre 0 y'
+    fn () => $service->select($students, -1, 0),
+    'no pueden ser negativas'
 );
 
-// Prueba 7: rechaza cantidades mayores al total disponible.
 assertSelectionThrows(
-    fn () => $service->select($students, count($students) + 1),
-    'entre 0 y'
+    fn () => $service->select($students, 0, -1),
+    'no pueden ser negativas'
 );
 
-// Prueba 8: rechaza un conjunto vacío.
+// Prueba 9: rechaza una suma superior al total disponible.
 assertSelectionThrows(
-    fn () => $service->select([], 0),
+    fn () => $service->select($students, 3, 3),
+    'no puede superar'
+);
+
+// Prueba 10: rechaza un conjunto vacío.
+assertSelectionThrows(
+    fn () => $service->select([], 0, 0),
     'No hay registros'
 );
 
-
-/**
- * Prueba 9: permite seleccionar exactamente un registro.
- */
-$result = $service->select($students, 1);
+// Prueba 11: permite seleccionar un solo beneficiario.
+$result = $service->select($students, 1, 0);
 
 if (
-    count($result['selected']) !== 1
+    count($result['beneficiaries']) !== 1
+    || $result['alternates'] !== []
     || count($result['not_selected']) !== count($students) - 1
 ) {
     throw new RuntimeException(
-        'Falló la selección de un solo registro.'
+        'Falló la selección de un solo beneficiario.'
     );
 }
 
-/**
- * Prueba 10: conserva filas idénticas como registros independientes.
- */
+// Prueba 12: conserva filas idénticas como registros independientes.
 $duplicateStudents = [
     ['doc' => '999', 'nombre' => 'Estudiante'],
     ['doc' => '999', 'nombre' => 'Estudiante'],
 ];
 
-$result = $service->select($duplicateStudents, 1);
+$result = $service->select($duplicateStudents, 1, 0);
 
 if (
-    count($result['selected']) !== 1
+    count($result['beneficiaries']) !== 1
+    || $result['alternates'] !== []
     || count($result['not_selected']) !== 1
-    || $result['selected'][0] !== $result['not_selected'][0]
+    || $result['beneficiaries'][0] !== $result['not_selected'][0]
 ) {
     throw new RuntimeException(
         'No se conservaron correctamente las filas duplicadas.'
     );
 }
-
 
 echo "Correcto: todas las pruebas de SelectionService.\n";
