@@ -377,6 +377,263 @@ ob_start();
         </section>
     <?php endif; ?>
 
+
+    <!-- Permite comparar dos Excel sin ejecutar un sorteo. -->
+    <section class="dashboard-section" aria-labelledby="comparison-title">
+        <div class="dashboard-section__heading">
+            <h2 id="comparison-title">Comparación de archivos Excel</h2>
+            <p>
+                Carga el Excel principal de los estudiantes y el Excel del año pasado.
+                Se eliminarán los estudiantes del Excel principal de los registros cuyo documento
+                aparezca en el Excel del año pasado. Los archivos originales no se modificarán.
+            </p>
+        </div>
+
+        <?php
+        // Recupera el mensaje de comparación y evita que se repita.
+        $comparisonFeedback = $_SESSION['comparison_feedback'] ?? null;
+        unset($_SESSION['comparison_feedback']);
+        ?>
+
+        <?php if (is_array($comparisonFeedback)): ?>
+            <div class="upload-feedback upload-feedback--<?= ($comparisonFeedback['type'] ?? '') === 'success' ? 'success' : 'error' ?>"
+                role="status">
+                <?= htmlspecialchars(
+                    (string) ($comparisonFeedback['message'] ?? ''),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>
+            </div>
+        <?php endif; ?>
+
+
+        <!-- Permite cargar los dos Excel mediante una única solicitud. -->
+        <form class="upload-form" method="post" action="index.php?page=dashboard" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                (string) ($_SESSION['csrf_token'] ?? ''),
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>">
+
+            <input type="hidden" name="action" value="upload_comparison_files">
+
+            <div class="form-group">
+                <label for="comparison-file-a">Excel A — Estudiantes del año actual</label>
+                <input type="file" id="comparison-file-a" name="comparison_excel_a_file" accept=".xlsx,.xls" required>
+                <p>Debe contener los encabezados oficiales de Randomix.</p>
+            </div>
+
+            <div class="form-group">
+                <label for="comparison-file-b">Excel B — Estudiantes del año pasado</label>
+                <input type="file" id="comparison-file-b" name="comparison_excel_b_file" accept=".xlsx,.xls" required>
+                <p>
+                    Debe contener una columna cuyo encabezado sea exactamente
+                    <code>doc</code>.
+                </p>
+            </div>
+
+            <button type="submit" class="button button-primary">
+                Cargar ambos archivos
+            </button>
+        </form>
+
+        <!-- Informa qué archivos están registrados en la sesión. -->
+        <div class="upload-current">
+            <p>
+                <strong>Excel A:</strong>
+                <?php if (is_array($comparisonExcelA)): ?>
+                    <?= htmlspecialchars(
+                        (string) ($comparisonExcelA['original_name'] ?? 'Archivo cargado'),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+                <?php else: ?>
+                    Pendiente de cargar
+                <?php endif; ?>
+            </p>
+
+            <p>
+                <strong>Excel B:</strong>
+                <?php if (is_array($comparisonExcelB)): ?>
+                    <?= htmlspecialchars(
+                        (string) ($comparisonExcelB['original_name'] ?? 'Archivo cargado'),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>
+                <?php else: ?>
+                    Pendiente de cargar
+                <?php endif; ?>
+            </p>
+        </div>
+
+        <!-- Exige ambos archivos y sus hojas para habilitar la comparación. -->
+        <?php if (
+            is_array($comparisonExcelA)
+            && is_array($comparisonExcelB)
+            && $comparisonSheetsA !== []
+            && $comparisonSheetsB !== []
+        ): ?>
+            <form method="post" action="index.php?page=dashboard">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                    (string) ($_SESSION['csrf_token'] ?? ''),
+                    ENT_QUOTES,
+                    'UTF-8'
+                ) ?>">
+                <input type="hidden" name="action" value="execute_comparison">
+
+                <div class="form-group">
+                    <label for="comparison-sheet-a">Hoja del Excel A</label>
+                    <select id="comparison-sheet-a" name="comparison_sheet_a" required>
+                        <?php foreach ($comparisonSheetsA as $sheet): ?>
+                            <option value="<?= htmlspecialchars(
+                                (string) $sheet,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>">
+                                <?= htmlspecialchars(
+                                    (string) $sheet,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="comparison-sheet-b">Hoja del Excel B</label>
+                    <select id="comparison-sheet-b" name="comparison_sheet_b" required>
+                        <?php foreach ($comparisonSheetsB as $sheet): ?>
+                            <option value="<?= htmlspecialchars(
+                                (string) $sheet,
+                                ENT_QUOTES,
+                                'UTF-8'
+                            ) ?>">
+                                <?= htmlspecialchars(
+                                    (string) $sheet,
+                                    ENT_QUOTES,
+                                    'UTF-8'
+                                ) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <button type="submit" class="button button-primary">
+                    Comparar archivos
+                </button>
+            </form>
+        <?php elseif (is_array($comparisonExcelA) || is_array($comparisonExcelB)): ?>
+            <p class="upload-feedback upload-feedback--error" role="status">
+                Para comparar, carga ambos archivos y asegúrate de que sus hojas
+                se puedan leer.
+            </p>
+        <?php endif; ?>
+
+
+        <!-- Presenta las estadísticas de la última comparación realizada. -->
+        <?php if (
+            is_array($comparisonResult)
+            && isset(
+            $comparisonResult['total_original'],
+            $comparisonResult['coincidences_removed'],
+            $comparisonResult['remaining']
+        )
+        ): ?>
+            <section class="comparison-results" aria-labelledby="comparison-results-title">
+                <h3 id="comparison-results-title">Resultado de la comparación</h3>
+
+                <div class="comparison-results__stats">
+                    <article class="comparison-results__stat">
+                        <span>Registros originales de A</span>
+                        <strong>
+                            <?= number_format(
+                                (int) $comparisonResult['total_original'],
+                                0,
+                                ',',
+                                '.'
+                            ) ?>
+                        </strong>
+                    </article>
+
+                    <article class="comparison-results__stat">
+                        <span>Registros eliminados por coincidencia</span>
+                        <strong>
+                            <?= number_format(
+                                (int) $comparisonResult['coincidences_removed'],
+                                0,
+                                ',',
+                                '.'
+                            ) ?>
+                        </strong>
+                    </article>
+
+                    <article class="comparison-results__stat">
+                        <span>Registros restantes</span>
+                        <strong>
+                            <?= number_format(
+                                (int) $comparisonResult['remaining'],
+                                0,
+                                ',',
+                                '.'
+                            ) ?>
+                        </strong>
+                    </article>
+                </div>
+
+
+                <?php
+                // Solo permite exportar cuando hay resultados de comparación disponibles.
+                if (
+                    isset($_SESSION['comparison_result'])
+                    && is_array($_SESSION['comparison_result'])
+                    && isset(
+                    $_SESSION['comparison_result']['headers'],
+                    $_SESSION['comparison_result']['records']
+                )
+                ):
+                    ?>
+
+                    <form class="comparison-export-form" method="POST" action="index.php?page=dashboard">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                            (string) ($_SESSION['csrf_token'] ?? ''),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ) ?>">
+
+                        <input type="hidden" name="action" value="export_comparison">
+
+                        <!-- Reutiliza el diseño de las tarjetas de exportación existentes. -->
+                        <button type="submit" class="export-card export-card--excel comparison-export-card">
+                            <span class="export-card__icon" aria-hidden="true">XLSX</span>
+
+                            <span class="export-card__content">
+                                <span class="export-card__eyebrow">Microsoft Excel</span>
+
+                                <span class="export-card__title">
+                                    Excel sin coincidencias
+                                </span>
+
+                                <span class="export-card__description">
+                                    Descarga los registros de A que no aparecen en el archivo B.
+                                </span>
+
+                                <span class="export-card__action">
+                                    Descargar Excel <span aria-hidden="true">↓</span>
+                                </span>
+                            </span>
+
+                            <span class="export-card__arrow" aria-hidden="true">›</span>
+                        </button>
+                    </form>
+
+                <?php endif; ?>
+
+            </section>
+        <?php endif; ?>
+
+    </section>
+
     <!-- Informa sobre el alcance funcional actual. -->
     <aside class="dashboard-notice">
         <span class="dashboard-notice__icon" aria-hidden="true">i</span>

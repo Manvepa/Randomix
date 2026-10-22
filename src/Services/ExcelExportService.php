@@ -164,8 +164,6 @@ final class ExcelExportService
             // Formato de encabezados.
             $lastColumn = $sheet->getHighestColumn();
 
-
-
             // Valida los índices de hermanos y suplentes y prepara búsquedas rápidas.
             $highlightedIndexMap = [];
             $alternateIndexMap = [];

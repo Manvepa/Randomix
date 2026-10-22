@@ -864,3 +864,19 @@ body.is-loading {
         border-right-color: #214f91;
     }
 }
+/* Tarjeta de descarga de la comparación de Excel. */
+.comparison-export-form {
+    margin: 24px 0 10px;
+}
+
+.comparison-export-card {
+    width: 100%;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.comparison-export-card:focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+}

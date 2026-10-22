@@ -9,6 +9,7 @@ use Randomix\Security\SessionManager;
 use Randomix\Controllers\SelectionController;
 use Randomix\Services\ExcelExportService;
 use Randomix\Services\PdfPreviewService;
+use Randomix\Controllers\ExcelComparisonController;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -69,6 +70,14 @@ $uploadController = new UploadController(
     (int) $importConfig['max_file_size']
 );
 
+// Prepara el controlador independiente de comparación de Excel.
+$excelComparisonController = new ExcelComparisonController(
+    $projectRoot,
+    (int) $importConfig['max_file_size'],
+    $importConfig['required_headers'],
+    (int) $importConfig['max_rows']
+);
+
 // Prepara el servicio que inspecciona las hojas y valida sus encabezados.
 $excelInspectionController = new ExcelInspectionController(
     $projectRoot,
@@ -106,8 +115,112 @@ if ($isAuthenticated) {
         unset($_SESSION['sheet_validation']);
         unset($_SESSION['selection_result']);
     }
+
+    // NUEVO: comprueba la expiración de Excel A y Excel B.
+    $comparisonExpired = false;
+
+    foreach (['comparison_excel_a', 'comparison_excel_b'] as $sessionKey) {
+        $comparisonFile = $_SESSION[$sessionKey] ?? null;
+
+        if (
+            is_array($comparisonFile)
+            && isset($comparisonFile['expires_at'])
+            && is_int($comparisonFile['expires_at'])
+            && $comparisonFile['expires_at'] <= time()
+        ) {
+            unset($_SESSION[$sessionKey]);
+            $comparisonExpired = true;
+        }
+    }
+
+    // Invalida la comparación si alguno de sus archivos venció.
+    if ($comparisonExpired) {
+        unset($_SESSION['comparison_result']);
+
+        $_SESSION['comparison_feedback'] = [
+            'type' => 'error',
+            'message' => 'Uno de los archivos de comparación ha vencido. Debes cargarlo nuevamente.',
+        ];
+    }
 }
 
+
+/**
+ * Genera y descarga el Excel A sin las filas que coincidieron con B.
+ * Utiliza el resultado calculado y guardado en la sesión.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'export_comparison'
+) {
+    // Exige una sesión administrativa autenticada.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    // Verifica el token CSRF antes de generar el archivo.
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        http_response_code(403);
+        exit('La solicitud ha expirado. Recarga el panel e inténtalo nuevamente.');
+    }
+
+    $comparisonResult = $_SESSION['comparison_result'] ?? null;
+
+    // Comprueba que exista una comparación válida para exportar.
+    if (
+        !is_array($comparisonResult)
+        || !isset(
+            $comparisonResult['headers'],
+            $comparisonResult['records']
+        )
+        || !is_array($comparisonResult['headers'])
+        || $comparisonResult['headers'] === []
+        || !is_array($comparisonResult['records'])
+    ) {
+        http_response_code(404);
+        exit('No hay resultados de comparación disponibles para exportar.');
+    }
+
+    try {
+        // Genera el XLSX usando las columnas y filas filtradas de Excel A.
+        $exportService = new ExcelExportService();
+
+        $content = $exportService->generate(
+            $comparisonResult['headers'],
+            $comparisonResult['records'],
+            [],
+            []
+        );
+    } catch (Throwable $exception) {
+        // Registra el detalle técnico sin exponerlo al usuario.
+        error_log($exception->__toString());
+
+        http_response_code(500);
+        exit('No fue posible generar el Excel de la comparación.');
+    }
+
+    // Envía el archivo al navegador sin guardarlo permanentemente.
+    $filename = 'excel_A_sin_coincidencias.xlsx';
+
+    header(
+        'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    header(
+        'Content-Disposition: attachment; filename="' . $filename . '"'
+    );
+    header('Content-Length: ' . strlen($content));
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('X-Content-Type-Options: nosniff');
+
+    echo $content;
+    exit;
+}
 
 /**
  * Procesa las descargas de Excel antes de generar cualquier HTML.
@@ -523,6 +636,214 @@ if (
 
 
 /**
+ * Carga de forma independiente el Excel A o el Excel B de la comparación.
+ */
+
+/**
+ * Recibe y valida conjuntamente los dos Excel de la comparación.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'upload_comparison_files'
+) {
+    // Solo los administradores autenticados pueden cargar archivos.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    // Verifica el token CSRF antes de procesar los archivos.
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        $_SESSION['comparison_feedback'] = [
+            'type' => 'error',
+            'message' => 'La solicitud ha expirado. Recarga el panel e inténtalo nuevamente.',
+        ];
+    } else {
+        $fileA = $_FILES['comparison_excel_a_file'] ?? null;
+        $fileB = $_FILES['comparison_excel_b_file'] ?? null;
+
+        // Identifica los archivos que no fueron seleccionados.
+        $missingFiles = [];
+
+        if (
+            !is_array($fileA)
+            || ($fileA['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
+        ) {
+            $missingFiles[] = 'Excel A';
+        }
+
+        if (
+            !is_array($fileB)
+            || ($fileB['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
+        ) {
+            $missingFiles[] = 'Excel B';
+        }
+
+        // No procesa ningún archivo si falta uno de los dos.
+        if ($missingFiles !== []) {
+            $_SESSION['comparison_feedback'] = [
+                'type' => 'error',
+                'message' => 'No has seleccionado: '
+                    . implode(' y ', $missingFiles)
+                    . '. Debes seleccionar ambos archivos.',
+            ];
+        } else {
+            try {
+                // Carga cada archivo mediante el controlador existente.
+                $resultA = $excelComparisonController->upload($fileA, 'a');
+                $resultB = $excelComparisonController->upload($fileB, 'b');
+
+                if (
+                    ($resultA['success'] ?? false) === true
+                    && ($resultB['success'] ?? false) === true
+                ) {
+                    // Registra ambos archivos únicamente si las dos cargas funcionan.
+                    $_SESSION['comparison_excel_a'] = $resultA['file'];
+                    $_SESSION['comparison_excel_b'] = $resultB['file'];
+
+                    // Invalida el resultado anterior al cambiar los archivos.
+                    unset($_SESSION['comparison_result']);
+
+                    $_SESSION['comparison_feedback'] = [
+                        'type' => 'success',
+                        'message' => 'Ambos archivos se cargaron correctamente. Estarán disponibles durante 15 minutos.',
+                    ];
+                } else {
+                    // Evita comparar un archivo nuevo con otro anterior.
+                    unset(
+                        $_SESSION['comparison_excel_a'],
+                        $_SESSION['comparison_excel_b'],
+                        $_SESSION['comparison_result']
+                    );
+
+                    $errors = [];
+
+                    foreach ([
+                        'Excel A' => $resultA,
+                        'Excel B' => $resultB,
+                    ] as $label => $result) {
+                        if (($result['success'] ?? false) !== true) {
+                            foreach (($result['errors'] ?? []) as $error) {
+                                $errors[] = $label . ': ' . $error;
+                            }
+                        }
+                    }
+
+                    $_SESSION['comparison_feedback'] = [
+                        'type' => 'error',
+                        'message' => implode(
+                            ' ',
+                            $errors ?: ['No fue posible cargar ambos archivos.']
+                        ),
+                    ];
+                }
+            } catch (Throwable $exception) {
+                error_log($exception->__toString());
+
+                unset(
+                    $_SESSION['comparison_excel_a'],
+                    $_SESSION['comparison_excel_b'],
+                    $_SESSION['comparison_result']
+                );
+
+                $_SESSION['comparison_feedback'] = [
+                    'type' => 'error',
+                    'message' => 'Ocurrió un error al cargar los archivos. Comprueba los Excel e inténtalo nuevamente.',
+                ];
+            }
+        }
+    }
+
+    // Evita reenviar el formulario al actualizar el navegador.
+    header('Location: index.php?page=dashboard');
+    exit;
+}
+
+/**
+ * Compara los archivos A y B usando las hojas elegidas por el administrador.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'execute_comparison'
+) {
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        unset($_SESSION['comparison_result']);
+
+        $_SESSION['comparison_feedback'] = [
+            'type' => 'error',
+            'message' => 'La solicitud ha expirado. Recarga el panel e inténtalo nuevamente.',
+        ];
+    } else {
+        $fileA = $_SESSION['comparison_excel_a'] ?? null;
+        $fileB = $_SESSION['comparison_excel_b'] ?? null;
+        $sheetA = $_POST['comparison_sheet_a'] ?? '';
+        $sheetB = $_POST['comparison_sheet_b'] ?? '';
+
+        if (
+            !is_array($fileA)
+            || !is_array($fileB)
+            || !is_string($sheetA)
+            || trim($sheetA) === ''
+            || !is_string($sheetB)
+            || trim($sheetB) === ''
+        ) {
+            unset($_SESSION['comparison_result']);
+
+            $_SESSION['comparison_feedback'] = [
+                'type' => 'error',
+                'message' => 'Debes cargar ambos archivos y seleccionar una hoja en cada uno.',
+            ];
+        } else {
+            $result = $excelComparisonController->compare(
+                $fileA,
+                $sheetA,
+                $fileB,
+                $sheetB
+            );
+
+            if ($result['success'] === true) {
+                $_SESSION['comparison_result'] = $result['result'];
+
+                $_SESSION['comparison_feedback'] = [
+                    'type' => 'success',
+                    'message' => 'La comparación terminó correctamente.',
+                ];
+            } else {
+                unset($_SESSION['comparison_result']);
+
+                $_SESSION['comparison_feedback'] = [
+                    'type' => 'error',
+                    'message' => implode(
+                        ' ',
+                        $result['errors'] ?? [
+                            'No fue posible comparar los archivos.',
+                        ]
+                    ),
+                ];
+            }
+        }
+    }
+
+    header('Location: index.php?page=dashboard');
+    exit;
+}
+
+/**
  * Procesa la selección de una hoja y valida sus encabezados.
  */
 if (
@@ -674,12 +995,20 @@ if ($page !== 'login' && $page !== 'dashboard') {
     exit('Página no encontrada.');
 }
 
-// Prepara los datos del Excel temporal para mostrarlos en el panel.
+// Prepara los datos de los Excel temporales para mostrarlos en el panel.
 if ($page === 'dashboard') {
+    // Datos del Excel utilizado en el sorteo tradicional.
     $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
     $excelSheets = [];
     $sheetValidation = $_SESSION['sheet_validation'] ?? null;
     $selectionResult = $_SESSION['selection_result'] ?? null;
+
+    // Datos de los Excel utilizados en la comparación independiente.
+    $comparisonExcelA = $_SESSION['comparison_excel_a'] ?? null;
+    $comparisonExcelB = $_SESSION['comparison_excel_b'] ?? null;
+    $comparisonSheetsA = [];
+    $comparisonSheetsB = [];
+    $comparisonResult = $_SESSION['comparison_result'] ?? null;
 
     // Obtiene las hojas únicamente si existe un archivo temporal vigente.
     if (is_array($uploadedExcel)) {
@@ -691,6 +1020,26 @@ if ($page === 'dashboard') {
             $excelSheets = $sheetResult['sheets'];
         } else {
             $excelSheets = [];
+        }
+    }
+
+    // Obtiene las hojas disponibles del Excel A de la comparación.
+    if (is_array($comparisonExcelA)) {
+        $comparisonSheetResultA = $excelComparisonController
+            ->getSheetNames($comparisonExcelA);
+
+        if ($comparisonSheetResultA['success'] === true) {
+            $comparisonSheetsA = $comparisonSheetResultA['sheets'];
+        }
+    }
+
+    // Obtiene las hojas disponibles del Excel B de la comparación.
+    if (is_array($comparisonExcelB)) {
+        $comparisonSheetResultB = $excelComparisonController
+            ->getSheetNames($comparisonExcelB);
+
+        if ($comparisonSheetResultB['success'] === true) {
+            $comparisonSheetsB = $comparisonSheetResultB['sheets'];
         }
     }
 

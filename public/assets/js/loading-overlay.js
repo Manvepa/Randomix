@@ -5,6 +5,7 @@
 (() => {
     'use strict';
 
+
     // Define los mensajes asociados a las acciones reales de Randomix.
     const loadingMessages = {
         upload_excel: {
@@ -18,6 +19,14 @@
         execute_selection: {
             title: 'Realizando selección aleatoria',
             description: 'Estamos procesando los registros y preparando los resultados.'
+        },
+        upload_comparison_files: {
+            title: 'Cargando los archivos de comparación',
+            description: 'Estamos guardando Excel A y Excel B y validando sus estructuras. Por favor, espera.'
+        },
+        execute_comparison: {
+            title: 'Comparando los archivos Excel',
+            description: 'Estamos buscando coincidencias entre los documentos y calculando los registros restantes.'
         }
     };
 
@@ -57,7 +66,6 @@
         const description = overlay.querySelector(
             '.loading-overlay__description'
         );
-
 
         // Obtiene los campos que participan en el cálculo del sorteo.
         const beneficiaryInput = document.getElementById(
