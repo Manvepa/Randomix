@@ -385,7 +385,7 @@ ob_start();
                         </span>
                         <span class="export-card__arrow" aria-hidden="true">›</span>
                     </a>
-                    
+
                     <!-- Estudiantes no seleccionados en PDF -->
                     <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=not_selected" target="_blank"
                         rel="noopener noreferrer">
@@ -451,6 +451,14 @@ ob_start();
                 a Excel y PDF están disponibles.</p>
         </div>
     </aside>
+
+    <!-- Facilita el regreso al dashboard principal. -->
+     <br>
+    <div class="page-actions">
+        <a class="button button-primary" href="index.php?page=dashboard">
+            ← Volver al dashboard
+        </a>
+    </div>
 </section>
 
 <?php

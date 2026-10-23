@@ -1442,4 +1442,3 @@ if ($page === 'dashboard') {
     // Si la página es login, muestra el formulario de autenticación.
     require $projectRoot . '/templates/auth/login.php';
 }
-

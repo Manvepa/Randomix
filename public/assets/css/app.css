@@ -1,17 +1,21 @@
 
 /* Paleta y propiedades globales */
+/* Paleta institucional de Randomix */
 :root {
     color-scheme: light;
-    --color-primary: #163b70;
-    --color-primary-hover: #102e59;
-    --color-accent: #3676c8;
-    --color-text: #172b45;
-    --color-muted: #64748b;
-    --color-background: #f3f6fb;
+
+    --color-primary: #00933A;
+    --color-primary-hover: #007A30;
+    --color-accent: #00933A;
+
+    --color-text: #243329;
+    --color-muted: #647067;
+    --color-background: #f3f7f4;
     --color-surface: #ffffff;
-    --color-border: #e1e8f0;
+    --color-border: #dce8df;
+
     --radius-card: 20px;
-    --shadow-card: 0 20px 60px rgb(22 59 112 / 9%);
+    --shadow-card: 0 20px 60px rgb(0 147 58 / 9%);
 }
 
 * { box-sizing: border-box; }
@@ -38,8 +42,8 @@ body {
     min-height: 100vh;
     padding: 40px 24px 24px;
     background:
-        radial-gradient(ellipse at 12% 12%, rgb(54 118 200 / 9%), transparent 36%),
-        radial-gradient(ellipse at 90% 90%, rgb(22 59 112 / 7%), transparent 34%),
+        radial-gradient(ellipse at 12% 12%, rgb(0 147 58 / 9%), transparent 36%),
+        radial-gradient(ellipse at 90% 90%, rgb(0 147 58 / 7%), transparent 34%),
         var(--color-background);
 }
 
@@ -193,18 +197,20 @@ body {
 .dashboard-header {
     position: relative;
     z-index: 1;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
+    border-top: 4px solid #007a30;
+    border-bottom: 1px solid #007a30;
+    background: #00933a;
+    box-shadow: 0 4px 18px rgb(0 147 58 / 18%);
 }
 
 .dashboard-header__inner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 24px;
+    gap: 28px;
     width: 100%;
     max-width: 1440px;
-    min-height: 80px;
+    min-height: 92px;
     margin: 0 auto;
     padding: 14px 36px;
 }
@@ -212,9 +218,11 @@ body {
 .dashboard-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 15px;
+    min-width: 0;
     color: inherit;
     text-decoration: none;
+    border-radius: 12px;
 }
 
 .dashboard-brand .brand-mark {
@@ -225,41 +233,54 @@ body {
 .dashboard-brand__text {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
 }
 
 .dashboard-brand__name {
-    font-size: 20px;
+    color: #ffffff;
+    font-size: 23px;
     font-weight: 800;
-    letter-spacing: -0.5px;
+    line-height: 1.2;
+    letter-spacing: -0.6px;
 }
 
 .dashboard-brand__caption {
-    color: var(--color-muted);
-    font-size: 11px;
+    color: #e5f5eb;
+    font-size: 12px;
+    line-height: 1.5;
 }
 
 .dashboard-user {
     display: flex;
     align-items: center;
-    gap: 22px;
+    justify-content: flex-end;
+    gap: 18px;
 }
 
 .dashboard-user__identity {
     display: flex;
     flex-direction: column;
     gap: 5px;
-    text-align: right;
+    padding: 10px 15px;
+    border-left: 3px solid #b7dfc5;
+    border-radius: 0 8px 8px 0;
+    background: rgb(0 90 35 / 28%);
+    text-align: left;
 }
 
 .dashboard-user__label {
-    color: var(--color-muted);
+    color: #d6efdf;
     font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
 }
 
 .dashboard-user__name {
+    color: #ffffff;
     font-size: 13px;
-    font-weight: 700;
+    font-weight: 750;
+    overflow-wrap: anywhere;
 }
 
 .dashboard-user form { margin: 0; }
@@ -268,24 +289,32 @@ body {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    min-height: 40px;
-    padding: 10px 13px;
-    border: 1px solid var(--color-border);
+    gap: 9px;
+    min-height: 42px;
+    padding: 11px 16px;
+    border: 1px solid rgb(255 255 255 / 65%);
     border-radius: 9px;
-    color: var(--color-primary);
-    background: var(--color-surface);
+    color: #ffffff;
+    background: rgb(0 90 35 / 22%);
     font: inherit;
     font-size: 12px;
-    font-weight: 650;
+    font-weight: 700;
+    white-space: nowrap;
     cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 160ms ease;
 }
 
-.button-logout:hover { background: var(--color-background); }
+.button-logout:hover {
+    border-color: #ffffff;
+    color: #007a30;
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgb(0 65 25 / 18%);
+}
 
-.button-logout:focus-visible, .dashboard-brand:focus-visible {
-    outline: 3px solid var(--color-accent);
-    outline-offset: 3px;
+.button-logout:focus-visible,
+.dashboard-brand:focus-visible {
+    outline: 3px solid #d6efdf;
+    outline-offset: 4px;
 }
 
 /* Contenido del panel */
@@ -308,7 +337,7 @@ body {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-card);
     background:
-        radial-gradient(ellipse at 100% 0, rgb(54 118 200 / 13%), transparent 45%),
+        radial-gradient(ellipse at 100% 0, rgb(0 147 58 / 13%), transparent 45%),
         var(--color-surface);
     box-shadow: var(--shadow-card);
 }
@@ -335,7 +364,9 @@ body {
     object-fit: contain;
 }
 
-.dashboard-section { margin-bottom: 30px; }
+.dashboard-section {
+    margin: 0 36px 30px;
+}
 .dashboard-section__heading { margin-bottom: 20px; }
 
 .dashboard-section__heading h2 {
@@ -365,7 +396,7 @@ body {
     border: 1px solid var(--color-border);
     border-radius: 16px;
     background: var(--color-surface);
-    box-shadow: 0 8px 28px rgb(22 59 112 / 4%);
+    box-shadow: 0 8px 28px rgb(0 147 58 / 4%);
 }
 
 .workflow-card__number {
@@ -386,7 +417,7 @@ body {
     margin-bottom: 22px;
     border-radius: 13px;
     color: var(--color-primary);
-    background: #edf3fc;
+    background: #eaf7ef;
     font-size: 25px;
     font-weight: 700;
 }
@@ -434,7 +465,7 @@ body {
     flex-shrink: 0;
     border-radius: 50%;
     color: var(--color-primary);
-    background: #edf3fc;
+    background: #eaf7ef;
     font-size: 14px;
     font-weight: 800;
 }
@@ -600,14 +631,14 @@ body {
     color: var(--color-text);
     background: var(--color-surface);
     text-decoration: none;
-    box-shadow: 0 8px 24px rgb(22 59 112 / 5%);
+    box-shadow: 0 8px 24px rgb(0 147 58 / 5%);
     transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
 .export-card:hover {
     transform: translateY(-2px);
-    border-color: #c7d7ed;
-    box-shadow: 0 14px 30px rgb(22 59 112 / 10%);
+    border-color: #b7dfc5;
+    box-shadow: 0 14px 30px rgb(0 147 58 / 10%);
 }
 
 .export-card:focus-visible {
@@ -678,7 +709,7 @@ body {
 @media (max-width: 900px) {
     .workflow-grid { grid-template-columns: 1fr; }
     .workflow-card p { min-height: 0; }
-    .dashboard-page { padding: 30px 24px 40px; }
+    .dashboard-page { padding: 30px 28px 40px; }
     .dashboard-header__inner { padding-right: 24px; padding-left: 24px; }
 }
 
@@ -691,17 +722,40 @@ body {
 }
 
 @media (max-width: 600px) {
+    
+
     .dashboard-header__inner {
-        align-items: flex-start;
+        align-items: stretch;
         flex-direction: column;
         gap: 18px;
-        padding: 20px;
+        padding: 18px 20px;
+    }
+
+    .dashboard-brand .brand-mark {
+        width: 52px;
+        height: 52px;
+    }
+
+    .dashboard-brand__name {
+        font-size: 21px;
     }
 
     .dashboard-user {
+        align-items: stretch;
         justify-content: space-between;
         width: 100%;
         gap: 12px;
+    }
+
+    .dashboard-user__identity {
+        flex: 1;
+        min-width: 0;
+        padding: 9px 11px;
+    }
+
+    .button-logout {
+        align-self: center;
+        padding: 10px 12px;
     }
 
     .dashboard-user__identity { text-align: left; }
@@ -726,6 +780,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
     .export-card { transition: none; }
     .export-card:hover { transform: none; }
+    .button-logout { transition: none; }
 }
 
 /* Tamaño de los logotipos */
@@ -767,14 +822,14 @@ body {
     height: 54px;
     margin: 0 auto 24px;
     border: 5px solid #e4ebf5;
-    border-top-color: #214f91;
+    border-top-color: #007a30;
     border-radius: 50%;
     animation: loading-spin 800ms linear infinite;
 }
 
 .loading-overlay__title {
     margin: 0 0 12px;
-    color: #163b70;
+    color: #173b29;
     font-size: 21px;
     line-height: 1.4;
 }
@@ -798,7 +853,7 @@ body {
     display: block;
     width: 35%;
     height: 100%;
-    background: #214f91;
+    background: #007a30;
     border-radius: inherit;
     animation: loading-progress 1.4s ease-in-out infinite;
 }
@@ -860,8 +915,8 @@ body.is-loading {
     }
 
     .loading-overlay__spinner {
-        border-top-color: #214f91;
-        border-right-color: #214f91;
+        border-top-color: #007a30;
+        border-right-color: #007a30;
     }
 }
 /* Tarjeta de descarga de la comparación de Excel. */
@@ -892,8 +947,8 @@ body.is-loading {
 
 /* Cada sección puede ocupar todo el ancho de su columna. */
 .dashboard-processes > .dashboard-section {
-    min-width: 0;
-    margin-bottom: 0;
+    margin-right: 24px;
+    margin-left: 24px;
 }
 
 /* La tarjeta única ocupa el ancho completo de su sección. */

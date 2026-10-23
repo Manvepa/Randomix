@@ -41,6 +41,7 @@ ob_start();
 ?>
 
 <!-- Facilita el regreso al panel principal. -->
+ <br>
 <div class="page-actions">
     <a class="button button-primary" href="index.php?page=dashboard">
         ← Volver al dashboard
@@ -322,9 +323,17 @@ ob_start();
             </button>
         </form>
 
+        
+
     </section>
 <?php endif; ?>
-
+<!-- Facilita el regreso al dashboard principal. -->
+         <br>
+        <div class="page-actions">
+            <a class="button button-primary" href="index.php?page=dashboard">
+                ← Volver al dashboard
+            </a>
+        </div>
 <?php
 
 // Entrega el contenido al layout compartido de la aplicación.

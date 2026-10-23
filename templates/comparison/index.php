@@ -26,12 +26,12 @@ $comparisonFilesReady = is_array($comparisonExcelA)
 // Comprueba que exista un resultado con la estructura esperada.
 $comparisonResultReady = is_array($comparisonResult)
     && isset(
-        $comparisonResult['headers'],
-        $comparisonResult['records'],
-        $comparisonResult['total_original'],
-        $comparisonResult['coincidences_removed'],
-        $comparisonResult['remaining']
-    )
+    $comparisonResult['headers'],
+    $comparisonResult['records'],
+    $comparisonResult['total_original'],
+    $comparisonResult['coincidences_removed'],
+    $comparisonResult['remaining']
+)
     && is_array($comparisonResult['headers'])
     && is_array($comparisonResult['records']);
 
@@ -40,12 +40,12 @@ ob_start();
 ?>
 
 <!-- Facilita el regreso al dashboard principal. -->
+ <br>
 <div class="page-actions">
     <a class="button button-primary" href="index.php?page=dashboard">
         ← Volver al dashboard
     </a>
 </div>
-<br>
 
 <!-- Explica paso a paso cómo realizar la comparación. -->
 <section class="dashboard-section" aria-labelledby="comparison-workflow-title">
@@ -114,10 +114,8 @@ ob_start();
 
     <!-- Muestra el resultado de la última operación realizada. -->
     <?php if (is_array($comparisonFeedback)): ?>
-        <div
-            class="upload-feedback upload-feedback--<?= ($comparisonFeedback['type'] ?? '') === 'success' ? 'success' : 'error' ?>"
-            role="status"
-        >
+        <div class="upload-feedback upload-feedback--<?= ($comparisonFeedback['type'] ?? '') === 'success' ? 'success' : 'error' ?>"
+            role="status">
             <?= htmlspecialchars(
                 (string) ($comparisonFeedback['message'] ?? ''),
                 ENT_QUOTES,
@@ -127,21 +125,12 @@ ob_start();
     <?php endif; ?>
 
     <!-- Permite cargar los dos archivos en una única solicitud. -->
-    <form
-        class="upload-form"
-        method="post"
-        action="index.php?page=comparison"
-        enctype="multipart/form-data"
-    >
-        <input
-            type="hidden"
-            name="csrf_token"
-            value="<?= htmlspecialchars(
-                (string) ($_SESSION['csrf_token'] ?? ''),
-                ENT_QUOTES,
-                'UTF-8'
-            ) ?>"
-        >
+    <form class="upload-form" method="post" action="index.php?page=comparison" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+            (string) ($_SESSION['csrf_token'] ?? ''),
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>">
 
         <input type="hidden" name="action" value="upload_comparison_files">
 
@@ -150,13 +139,7 @@ ob_start();
                 Excel A — Estudiantes del año actual
             </label>
 
-            <input
-                type="file"
-                id="comparison-file-a"
-                name="comparison_excel_a_file"
-                accept=".xlsx,.xls"
-                required
-            >
+            <input type="file" id="comparison-file-a" name="comparison_excel_a_file" accept=".xlsx,.xls" required>
 
             <p>Debe contener los encabezados oficiales de Randomix.</p>
         </div>
@@ -166,13 +149,7 @@ ob_start();
                 Excel B — Estudiantes del año pasado
             </label>
 
-            <input
-                type="file"
-                id="comparison-file-b"
-                name="comparison_excel_b_file"
-                accept=".xlsx,.xls"
-                required
-            >
+            <input type="file" id="comparison-file-b" name="comparison_excel_b_file" accept=".xlsx,.xls" required>
 
             <p>
                 Debe contener una columna cuyo encabezado sea exactamente
@@ -198,20 +175,12 @@ ob_start();
             </p>
         </div>
 
-        <form
-            class="upload-form"
-            method="post"
-            action="index.php?page=comparison"
-        >
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="<?= htmlspecialchars(
-                    (string) ($_SESSION['csrf_token'] ?? ''),
-                    ENT_QUOTES,
-                    'UTF-8'
-                ) ?>"
-            >
+        <form class="upload-form" method="post" action="index.php?page=comparison">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                (string) ($_SESSION['csrf_token'] ?? ''),
+                ENT_QUOTES,
+                'UTF-8'
+            ) ?>">
 
             <input type="hidden" name="action" value="execute_comparison">
 
@@ -220,11 +189,7 @@ ob_start();
                     Hoja del Excel A
                 </label>
 
-                <select
-                    id="comparison-sheet-a"
-                    name="comparison_sheet_a"
-                    required
-                >
+                <select id="comparison-sheet-a" name="comparison_sheet_a" required>
                     <option value="">Selecciona una hoja</option>
 
                     <?php foreach ($comparisonSheetsA as $sheet): ?>
@@ -248,11 +213,7 @@ ob_start();
                     Hoja del Excel B
                 </label>
 
-                <select
-                    id="comparison-sheet-b"
-                    name="comparison_sheet_b"
-                    required
-                >
+                <select id="comparison-sheet-b" name="comparison_sheet_b" required>
                     <option value="">Selecciona una hoja</option>
 
                     <?php foreach ($comparisonSheetsB as $sheet): ?>
@@ -338,25 +299,14 @@ ob_start();
                     conservando sus encabezados.
                 </p>
 
-                <form
-                    method="post"
-                    action="index.php?page=comparison"
-                >
-                    <input
-                        type="hidden"
-                        name="csrf_token"
-                        value="<?= htmlspecialchars(
-                            (string) ($_SESSION['csrf_token'] ?? ''),
-                            ENT_QUOTES,
-                            'UTF-8'
-                        ) ?>"
-                    >
+                <form method="post" action="index.php?page=comparison">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
+                        (string) ($_SESSION['csrf_token'] ?? ''),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>">
 
-                    <input
-                        type="hidden"
-                        name="action"
-                        value="export_comparison"
-                    >
+                    <input type="hidden" name="action" value="export_comparison">
 
                     <button type="submit" class="button button-primary">
                         Descargar Excel filtrado
@@ -364,9 +314,16 @@ ob_start();
                 </form>
             </article>
         </div>
+
     </section>
 <?php endif; ?>
 
+ <br>
+<div class="page-actions">
+    <a class="button button-primary" href="index.php?page=dashboard">
+        ← Volver al dashboard
+    </a>
+</div>
 <?php
 
 // Entrega el contenido de esta página al layout compartido.
