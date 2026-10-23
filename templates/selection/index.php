@@ -22,14 +22,14 @@ ob_start();
 
 <!-- Facilita el regreso al dashboard principal. -->
 <br>
-    <div class="page-actions">
-        <a class="button button-primary" href="index.php?page=dashboard">
-            ← Volver al dashboard
-        </a>
-    </div>
+<div class="page-actions">
+    <a class="button button-primary" href="index.php?page=dashboard">
+        ← Volver al dashboard
+    </a>
+</div>
 
 <section class="dashboard-page">
-    
+
     <!-- Explica las etapas del proceso de selección aleatoria. -->
     <section class="dashboard-section" aria-labelledby="selection-workflow-title">
         <div class="dashboard-section__heading">
@@ -334,58 +334,110 @@ ob_start();
                     </p>
                 </div>
 
-                <!-- Permite descargar los resultados de ambos grupos en Excel. -->
 
-                <!-- Permite descargar Excel y visualizar los resultados en PDF. -->
                 <div class="export-actions" aria-label="Exportar y visualizar resultados">
+
+                    <!-- Estudiantes seleccionados en Excel -->
                     <a class="export-card export-card--excel" href="index.php?page=dashboard&amp;export=selected">
                         <span class="export-card__icon" aria-hidden="true">XLSX</span>
                         <span class="export-card__content">
                             <span class="export-card__eyebrow">Microsoft Excel</span>
                             <span class="export-card__title">Estudiantes seleccionados</span>
-                            <span class="export-card__description">Descarga los registros elegidos en una hoja de
-                                cálculo.</span>
-                            <span class="export-card__action">Descargar Excel <span aria-hidden="true">↓</span></span>
+                            <span class="export-card__description">
+                                Descarga los registros elegidos en una hoja de cálculo.
+                            </span>
+                            <span class="export-card__action">
+                                Descargar Excel <span aria-hidden="true">↓</span>
+                            </span>
                         </span>
                         <span class="export-card__arrow" aria-hidden="true">›</span>
                     </a>
 
+                    <!-- Estudiantes seleccionados en PDF -->
+                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=selected" target="_blank"
+                        rel="noopener noreferrer">
+                        <span class="export-card__icon" aria-hidden="true">PDF</span>
+                        <span class="export-card__content">
+                            <span class="export-card__eyebrow">Documento PDF</span>
+                            <span class="export-card__title">Estudiantes seleccionados</span>
+                            <span class="export-card__description">
+                                Abre la vista previa del documento con los estudiantes elegidos.
+                            </span>
+                            <span class="export-card__action">
+                                Visualizar PDF <span aria-hidden="true">↗</span>
+                            </span>
+                        </span>
+                        <span class="export-card__arrow" aria-hidden="true">›</span>
+                    </a>
+
+                    <!-- Estudiantes no seleccionados en Excel -->
                     <a class="export-card export-card--excel" href="index.php?page=dashboard&amp;export=not_selected">
                         <span class="export-card__icon" aria-hidden="true">XLSX</span>
                         <span class="export-card__content">
                             <span class="export-card__eyebrow">Microsoft Excel</span>
                             <span class="export-card__title">Estudiantes no seleccionados</span>
-                            <span class="export-card__description">Descarga los registros que no fueron elegidos.</span>
-                            <span class="export-card__action">Descargar Excel <span aria-hidden="true">↓</span></span>
+                            <span class="export-card__description">
+                                Descarga los registros que no fueron elegidos.
+                            </span>
+                            <span class="export-card__action">
+                                Descargar Excel <span aria-hidden="true">↓</span>
+                            </span>
                         </span>
                         <span class="export-card__arrow" aria-hidden="true">›</span>
                     </a>
-
-                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=selected" target="_blank"
-                        rel="noopener noreferrer">
-                        <span class="export-card__icon" aria-hidden="true">PDF</span>
-                        <span class="export-card__content">
-                            <span class="export-card__eyebrow">Visualizar Documento PDF</span>
-                            <span class="export-card__title">Estudiantes Seleccionados</span>
-                            <span class="export-card__description">Abre la vista previa del documento con los estudiantes
-                                elegidos.</span>
-                            <span class="export-card__action">Visualizar PDF <span aria-hidden="true">↗</span></span>
-                        </span>
-                        <span class="export-card__arrow" aria-hidden="true">›</span>
-                    </a>
-
+                    
+                    <!-- Estudiantes no seleccionados en PDF -->
                     <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=not_selected" target="_blank"
                         rel="noopener noreferrer">
                         <span class="export-card__icon" aria-hidden="true">PDF</span>
                         <span class="export-card__content">
-                            <span class="export-card__eyebrow">Visualizar Documento PDF</span>
-                            <span class="export-card__title">Estudiantes No seleccionados</span>
-                            <span class="export-card__description">Abre la vista previa de los estudiantes restantes.</span>
-                            <span class="export-card__action">Visualizar PDF <span aria-hidden="true">↗</span></span>
+                            <span class="export-card__eyebrow">Documento PDF</span>
+                            <span class="export-card__title">Estudiantes no seleccionados</span>
+                            <span class="export-card__description">
+                                Abre la vista previa de los estudiantes restantes.
+                            </span>
+                            <span class="export-card__action">
+                                Visualizar PDF <span aria-hidden="true">↗</span>
+                            </span>
                         </span>
                         <span class="export-card__arrow" aria-hidden="true">›</span>
                     </a>
+
+                    <!-- Suplentes en Excel -->
+                    <a class="export-card export-card--excel" href="index.php?page=dashboard&amp;export=alternates">
+                        <span class="export-card__icon" aria-hidden="true">XLSX</span>
+                        <span class="export-card__content">
+                            <span class="export-card__eyebrow">Microsoft Excel</span>
+                            <span class="export-card__title">Suplentes seleccionados</span>
+                            <span class="export-card__description">
+                                Descarga únicamente los suplentes seleccionados.
+                            </span>
+                            <span class="export-card__action">
+                                Descargar Excel <span aria-hidden="true">↓</span>
+                            </span>
+                        </span>
+                        <span class="export-card__arrow" aria-hidden="true">›</span>
+                    </a>
+
+                    <!-- Suplentes en PDF -->
+                    <a class="export-card export-card--pdf" href="index.php?page=dashboard&amp;pdf=alternates" target="_blank"
+                        rel="noopener noreferrer">
+                        <span class="export-card__icon" aria-hidden="true">PDF</span>
+                        <span class="export-card__content">
+                            <span class="export-card__eyebrow">Documento PDF</span>
+                            <span class="export-card__title">Suplentes seleccionados</span>
+                            <span class="export-card__description">
+                                Consulta únicamente los suplentes seleccionados.
+                            </span>
+                            <span class="export-card__action">
+                                Visualizar PDF <span aria-hidden="true">↗</span>
+                            </span>
+                        </span>
+                        <span class="export-card__arrow" aria-hidden="true">›</span>
+                    </a>
+
                 </div>
+
             <?php endif; ?>
         </section>
     <?php endif; ?>

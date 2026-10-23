@@ -176,9 +176,9 @@ if (
     if (
         !is_array($comparisonResult)
         || !isset(
-            $comparisonResult['headers'],
-            $comparisonResult['records']
-        )
+        $comparisonResult['headers'],
+        $comparisonResult['records']
+    )
         || !is_array($comparisonResult['headers'])
         || $comparisonResult['headers'] === []
         || !is_array($comparisonResult['records'])
@@ -238,10 +238,14 @@ if (
 
     $exportType = $_GET['export'];
 
-    // Solo se permiten los dos grupos de resultados disponibles.
+    // Permite exportar los grupos de resultados disponibles.
     if (
         !is_string($exportType)
-        || !in_array($exportType, ['selected', 'not_selected'], true)
+        || !in_array(
+            $exportType,
+            ['selected', 'not_selected', 'alternates'],
+            true
+        )
     ) {
         http_response_code(400);
         exit('Tipo de exportación no válido.');
@@ -258,12 +262,16 @@ if (
         exit('No hay resultados disponibles para exportar.');
     }
 
+    // Recupera los grupos de resultados de la selección.
     $selectedRecords = $selectionResult['selected'] ?? null;
     $notSelectedRecords = $selectionResult['not_selected'] ?? null;
+    $alternateRecords = $selectionResult['alternates'] ?? null;
 
+    // Comprueba que los grupos tengan una estructura válida.
     if (
         !is_array($selectedRecords)
         || !is_array($notSelectedRecords)
+        || !is_array($alternateRecords)
     ) {
         http_response_code(500);
         exit('Los resultados de la selección no tienen una estructura válida.');
@@ -284,11 +292,12 @@ if (
     $headers = array_keys($allRecords[0]);
 
 
-    // Selecciona el grupo solicitado y genera el archivo XLSX.
-    $records = $exportType === 'selected'
-        ? $selectedRecords
-        : $notSelectedRecords;
-
+    // Selecciona exclusivamente el grupo solicitado.
+    $records = match ($exportType) {
+        'selected' => $selectedRecords,
+        'not_selected' => $notSelectedRecords,
+        'alternates' => $alternateRecords,
+    };
 
     // Obtiene los índices de hermanos únicamente para el Excel seleccionado.
     $highlightedIndexes = $exportType === 'selected'
@@ -333,10 +342,12 @@ if (
         exit('No fue posible generar el archivo Excel.');
     }
 
-    // Envía la descarga sin guardar un archivo permanente.
-    $filename = $exportType === 'selected'
-        ? 'estudiantes_seleccionados.xlsx'
-        : 'estudiantes_no_seleccionados.xlsx';
+    // Asigna un nombre descriptivo según el grupo exportado.
+    $filename = match ($exportType) {
+        'selected' => 'estudiantes_seleccionados.xlsx',
+        'not_selected' => 'estudiantes_no_seleccionados.xlsx',
+        'alternates' => 'estudiantes_suplentes.xlsx',
+    };
 
     header(
         'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -370,7 +381,7 @@ if (
 
     if (
         !is_string($pdfType)
-        || !in_array($pdfType, ['selected', 'not_selected'], true)
+        || !in_array($pdfType, ['selected', 'not_selected', 'alternates'], true)
     ) {
         http_response_code(400);
         exit('Tipo de PDF no válido.');
@@ -387,12 +398,16 @@ if (
         exit('No hay resultados disponibles para generar el PDF.');
     }
 
+    // Recupera los grupos de resultados de la selección.
     $selectedRecords = $selectionResult['selected'] ?? null;
     $notSelectedRecords = $selectionResult['not_selected'] ?? null;
+    $alternateRecords = $selectionResult['alternates'] ?? null;
 
+    // Comprueba que los grupos tengan una estructura válida.
     if (
         !is_array($selectedRecords)
         || !is_array($notSelectedRecords)
+        || !is_array($alternateRecords)
     ) {
         http_response_code(500);
         exit('Los resultados de la selección no tienen una estructura válida.');
@@ -402,7 +417,8 @@ if (
     // incluso cuando el grupo solicitado no contiene registros.
     $allRecords = array_merge(
         $selectedRecords,
-        $notSelectedRecords
+        $notSelectedRecords,
+        $alternateRecords,
     );
 
     if (
@@ -416,11 +432,12 @@ if (
 
     $headers = array_keys($allRecords[0]);
 
-    // Selecciona los registros y define el título del documento.
-    $records = $pdfType === 'selected'
-        ? $selectedRecords
-        : $notSelectedRecords;
-
+    // Selecciona exclusivamente el grupo solicitado para el PDF.
+    $records = match ($pdfType) {
+        'selected' => $selectedRecords,
+        'not_selected' => $notSelectedRecords,
+        'alternates' => $alternateRecords,
+    };
 
     // Resalta coincidencias de apellidos únicamente en los seleccionados.
     $highlightedIndexes = $pdfType === 'selected'
@@ -448,13 +465,19 @@ if (
         }
     }
 
-    $title = $pdfType === 'selected'
-        ? 'Estudiantes seleccionados'
-        : 'Estudiantes no seleccionados';
+    // Asigna un título según el grupo que se mostrará.
+    $title = match ($pdfType) {
+        'selected' => 'Estudiantes seleccionados',
+        'not_selected' => 'Estudiantes no seleccionados',
+        'alternates' => 'Suplentes',
+    };
 
-    $filename = $pdfType === 'selected'
-        ? 'estudiantes_seleccionados.pdf'
-        : 'estudiantes_no_seleccionados.pdf';
+    // Asigna un nombre de archivo según el grupo mostrado.
+    $filename = match ($pdfType) {
+        'selected' => 'estudiantes_seleccionados.pdf',
+        'not_selected' => 'estudiantes_no_seleccionados.pdf',
+        'alternates' => 'estudiantes_suplentes.pdf',
+    };
 
     try {
         $pdfService = new PdfPreviewService();
