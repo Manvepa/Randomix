@@ -27,7 +27,8 @@ final class ExcelExportService
         array $headers,
         array $records,
         array $highlightedIndexes = [],
-        array $alternateIndexes = []
+        array $alternateIndexes = [],
+        bool $includeNumberColumn = false
     ): string {
         if ($headers === []) {
             throw new RuntimeException(
@@ -58,9 +59,21 @@ final class ExcelExportService
             $sheet->setTitle('Estudiantes');
 
             // Escribe los encabezados como texto explícito.
+            // Escribe la columna auxiliar de numeración cuando se solicita.
+            $columnOffset = $includeNumberColumn ? 1 : 0;
+
+            if ($includeNumberColumn) {
+                $sheet->setCellValueExplicit(
+                    'A1',
+                    '#',
+                    DataType::TYPE_STRING
+                );
+            }
+
+            // Escribe los encabezados oficiales respetando su orden.
             foreach (array_values($headers) as $columnIndex => $header) {
                 $sheet->setCellValueExplicit(
-                    [$columnIndex + 1, 1],
+                    [$columnIndex + 1 + $columnOffset, 1],
                     $header,
                     DataType::TYPE_STRING
                 );
@@ -74,11 +87,20 @@ final class ExcelExportService
                     );
                 }
 
+                // Genera la numeración consecutiva de Excel C.
+                if ($includeNumberColumn) {
+                    $sheet->setCellValue(
+                        [1, $rowIndex + 2],
+                        $rowIndex + 1
+                    );
+                }
+
+                // Desplaza los datos una columna si existe la columna auxiliar.
                 foreach (array_values($headers) as $columnIndex => $header) {
                     $value = $record[$header] ?? null;
 
                     $cellCoordinate = [
-                        $columnIndex + 1,
+                        $columnIndex + 1 + $columnOffset,
                         $rowIndex + 2,
                     ];
 

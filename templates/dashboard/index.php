@@ -100,6 +100,44 @@ ob_start();
         </section>
     </div>
     <br>
+
+
+    <!-- Acceso a la unión de dos archivos Excel. -->
+    <section class="dashboard-section" aria-labelledby="merge-title">
+        <div class="dashboard-section__heading">
+            <div>
+                <h2 id="merge-title">Unión de archivos Excel</h2>
+
+                <p>
+                    Combina dos archivos de estudiantes y elimina
+                    registros duplicados mediante el documento de identidad.
+                </p>
+            </div>
+        </div>
+
+        <div class="workflow-grid">
+            <article class="workflow-card">
+                <span class="workflow-card__number">03</span>
+
+                <div class="workflow-card__icon" aria-hidden="true">
+                    &#8645;
+                </div>
+
+                <h3>Unir Excel</h3>
+
+                <p>
+                    Carga dos archivos Excel, conserva la prioridad
+                    del archivo A y genera un archivo combinado sin
+                    estudiantes duplicados.
+                </p>
+
+                <a class="button button-primary" href="index.php?page=merge">
+                    Ir a unir Excel
+                </a>
+            </article>
+        </div>
+    </section>
+
     <!-- Informa sobre las funciones disponibles en el sistema. -->
     <aside class="dashboard-notice">
         <span class="dashboard-notice__icon" aria-hidden="true">i</span>

@@ -10,6 +10,7 @@ use Randomix\Controllers\SelectionController;
 use Randomix\Services\ExcelExportService;
 use Randomix\Services\PdfPreviewService;
 use Randomix\Controllers\ExcelComparisonController;
+use Randomix\Controllers\ExcelMergeController;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -72,6 +73,14 @@ $uploadController = new UploadController(
 
 // Prepara el controlador independiente de comparación de Excel.
 $excelComparisonController = new ExcelComparisonController(
+    $projectRoot,
+    (int) $importConfig['max_file_size'],
+    $importConfig['required_headers'],
+    (int) $importConfig['max_rows']
+);
+
+// Prepara el controlador independiente para unir dos archivos Excel.
+$excelMergeController = new ExcelMergeController(
     $projectRoot,
     (int) $importConfig['max_file_size'],
     $importConfig['required_headers'],
@@ -146,6 +155,83 @@ if ($isAuthenticated) {
 
 
 /**
+ * Genera y descarga el Excel C con el resultado de la unión.
+ * Utiliza los registros deduplicados almacenados en la sesión.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'export_merge'
+) {
+    // Solo los administradores autenticados pueden descargar el resultado.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    // Comprueba el token CSRF antes de generar el archivo.
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        http_response_code(403);
+        exit(
+            'La solicitud ha expirado. Recarga el panel e inténtalo nuevamente.'
+        );
+    }
+
+    $mergeResult = $_SESSION['merge_result'] ?? null;
+
+    // Comprueba que exista un resultado válido para exportar.
+    if (
+        !is_array($mergeResult)
+        || !isset($mergeResult['headers'], $mergeResult['records'])
+        || !is_array($mergeResult['headers'])
+        || $mergeResult['headers'] === []
+        || !is_array($mergeResult['records'])
+    ) {
+        http_response_code(404);
+        exit('No hay resultados de unión disponibles para exportar.');
+    }
+
+    try {
+        // Genera el Excel C con los encabezados oficiales y los registros finales.
+        $exportService = new ExcelExportService();
+
+        $content = $exportService->generate(
+            $mergeResult['headers'],
+            $mergeResult['records'],
+            [],
+            [],
+            true
+        );
+    } catch (Throwable $exception) {
+        // Registra el detalle técnico sin exponerlo al usuario.
+        error_log($exception->__toString());
+
+        http_response_code(500);
+        exit('No fue posible generar el Excel C.');
+    }
+
+    // Envía el archivo al navegador sin guardarlo permanentemente.
+    $filename = 'Excel_C_unificado.xlsx';
+
+    header(
+        'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    header(
+        'Content-Disposition: attachment; filename="' . $filename . '"'
+    );
+    header('Content-Length: ' . strlen($content));
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('X-Content-Type-Options: nosniff');
+
+    echo $content;
+    exit;
+}
+
+/**
  * Genera y descarga el Excel A sin las filas que coincidieron con B.
  * Utiliza el resultado calculado y guardado en la sesión.
  */
@@ -193,9 +279,7 @@ if (
 
         $content = $exportService->generate(
             $comparisonResult['headers'],
-            $comparisonResult['records'],
-            [],
-            []
+            $comparisonResult['records']
         );
     } catch (Throwable $exception) {
         // Registra el detalle técnico sin exponerlo al usuario.
@@ -206,7 +290,7 @@ if (
     }
 
     // Envía el archivo al navegador sin guardarlo permanentemente.
-    $filename = 'excel_A_sin_coincidencias.xlsx';
+    $filename = 'Actualizacion_Estudiantes.xlsx';
 
     header(
         'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
@@ -787,6 +871,245 @@ if (
     exit;
 }
 
+
+/**
+ * Carga los dos archivos Excel destinados a la unión.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'upload_merge_files'
+) {
+    // Solo los administradores autenticados pueden cargar archivos.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    // Verifica el token CSRF antes de procesar los archivos.
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        $_SESSION['merge_feedback'] = [
+            'type' => 'error',
+            'message' => 'La solicitud ha expirado. Recarga el panel e inténtalo nuevamente.',
+        ];
+    } else {
+        $fileA = $_FILES['merge_excel_a_file'] ?? null;
+        $fileB = $_FILES['merge_excel_b_file'] ?? null;
+
+        // Comprueba que se hayan seleccionado ambos archivos.
+        $missingFiles = [];
+
+        if (
+            !is_array($fileA)
+            || ($fileA['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
+        ) {
+            $missingFiles[] = 'Excel A';
+        }
+
+        if (
+            !is_array($fileB)
+            || ($fileB['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE
+        ) {
+            $missingFiles[] = 'Excel B';
+        }
+
+        if ($missingFiles !== []) {
+            $_SESSION['merge_feedback'] = [
+                'type' => 'error',
+                'message' => 'No has seleccionado: '
+                    . implode(' y ', $missingFiles)
+                    . '. Debes seleccionar ambos archivos.',
+            ];
+        } else {
+            try {
+                // Carga los archivos mediante el controlador específico de unión.
+                $resultA = $excelMergeController->upload($fileA, 'a');
+                $resultB = $excelMergeController->upload($fileB, 'b');
+
+                if (
+                    ($resultA['success'] ?? false) === true
+                    && ($resultB['success'] ?? false) === true
+                ) {
+                    // Guarda los metadatos solo cuando ambas cargas funcionan.
+                    $_SESSION['merge_excel_a'] = $resultA['file'];
+                    $_SESSION['merge_excel_b'] = $resultB['file'];
+
+                    // Invalida resultados anteriores para evitar descargar datos obsoletos.
+                    unset($_SESSION['merge_result']);
+
+                    $_SESSION['merge_feedback'] = [
+                        'type' => 'success',
+                        'message' => 'Ambos archivos se cargaron correctamente. Estarán disponibles durante 15 minutos.',
+                    ];
+                } else {
+                    // Evita mezclar archivos nuevos con archivos anteriores.
+                    unset(
+                        $_SESSION['merge_excel_a'],
+                        $_SESSION['merge_excel_b'],
+                        $_SESSION['merge_result']
+                    );
+
+                    $errors = [];
+
+                    foreach ([
+                        'Excel A' => $resultA,
+                        'Excel B' => $resultB,
+                    ] as $label => $result) {
+                        if (($result['success'] ?? false) !== true) {
+                            foreach (($result['errors'] ?? []) as $error) {
+                                $errors[] = $label . ': ' . $error;
+                            }
+                        }
+                    }
+
+                    $_SESSION['merge_feedback'] = [
+                        'type' => 'error',
+                        'message' => implode(
+                            ' ',
+                            $errors ?: ['No fue posible cargar ambos archivos.']
+                        ),
+                    ];
+                }
+            } catch (Throwable $exception) {
+                error_log($exception->__toString());
+
+                unset(
+                    $_SESSION['merge_excel_a'],
+                    $_SESSION['merge_excel_b'],
+                    $_SESSION['merge_result']
+                );
+
+                $_SESSION['merge_feedback'] = [
+                    'type' => 'error',
+                    'message' => 'Ocurrió un error al cargar los archivos. Inténtalo nuevamente.',
+                ];
+            }
+        }
+    }
+
+    // Aplica POST/Redirect/GET para evitar reenvíos accidentales.
+    header('Location: index.php?page=merge');
+    exit;
+}
+
+
+/**
+ * Ejecuta la unión de los dos archivos Excel cargados.
+ */
+if (
+    $_SERVER['REQUEST_METHOD'] === 'POST'
+    && $action === 'execute_merge'
+) {
+    // Solo los administradores autenticados pueden ejecutar la unión.
+    if (!$isAuthenticated) {
+        header('Location: index.php');
+        exit;
+    }
+
+    // Comprueba el token CSRF antes de procesar los archivos.
+    $tokenRecibido = $_POST['csrf_token'] ?? '';
+
+    if (
+        !is_string($tokenRecibido)
+        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+    ) {
+        unset($_SESSION['merge_result']);
+
+        $_SESSION['merge_feedback'] = [
+            'type' => 'error',
+            'message' => 'La solicitud ha expirado. Recarga el panel e inténtalo nuevamente.',
+        ];
+    } else {
+        $fileA = $_SESSION['merge_excel_a'] ?? null;
+        $fileB = $_SESSION['merge_excel_b'] ?? null;
+        $sheetA = $_POST['merge_sheet_a'] ?? '';
+        $sheetB = $_POST['merge_sheet_b'] ?? '';
+
+        // Comprueba que existan los archivos y las hojas seleccionadas.
+        if (
+            !is_array($fileA)
+            || !is_array($fileB)
+            || !is_string($sheetA)
+            || trim($sheetA) === ''
+            || !is_string($sheetB)
+            || trim($sheetB) === ''
+        ) {
+            unset($_SESSION['merge_result']);
+
+            $_SESSION['merge_feedback'] = [
+                'type' => 'error',
+                'message' => 'Debes cargar ambos archivos y seleccionar una hoja en cada uno.',
+            ];
+        } else {
+            try {
+                // Obtiene las hojas disponibles de cada archivo temporal.
+                $sheetsA = $excelMergeController->getSheetNames($fileA);
+                $sheetsB = $excelMergeController->getSheetNames($fileB);
+
+                $validSheetA = ($sheetsA['success'] ?? false) === true
+                    && in_array($sheetA, $sheetsA['sheets'], true);
+
+                $validSheetB = ($sheetsB['success'] ?? false) === true
+                    && in_array($sheetB, $sheetsB['sheets'], true);
+
+                if (!$validSheetA || !$validSheetB) {
+                    throw new RuntimeException(
+                        'Una de las hojas seleccionadas no existe o su archivo temporal venció. Comprueba los archivos y vuelve a intentarlo.'
+                    );
+                }
+
+                // Ejecuta la unión respetando las reglas definidas en el servicio.
+                $result = $excelMergeController->merge(
+                    $fileA,
+                    $sheetA,
+                    $fileB,
+                    $sheetB
+                );
+
+                if (($result['success'] ?? false) === true) {
+                    $_SESSION['merge_result'] = $result['result'];
+
+                    $_SESSION['merge_feedback'] = [
+                        'type' => 'success',
+                        'message' => 'La unión de los archivos terminó correctamente.',
+                    ];
+                } else {
+                    unset($_SESSION['merge_result']);
+
+                    $_SESSION['merge_feedback'] = [
+                        'type' => 'error',
+                        'message' => implode(
+                            ' ',
+                            $result['errors'] ?? [
+                                'No fue posible unir los archivos Excel.',
+                            ]
+                        ),
+                    ];
+                }
+            } catch (Throwable $exception) {
+                error_log($exception->__toString());
+
+                unset($_SESSION['merge_result']);
+
+                $_SESSION['merge_feedback'] = [
+                    'type' => 'error',
+                    'message' => $exception instanceof RuntimeException
+                        ? $exception->getMessage()
+                        : 'Ocurrió un error al unir los archivos Excel.',
+                ];
+            }
+        }
+    }
+
+    // Evita repetir la operación al actualizar el navegador.
+    header('Location: index.php?page=merge');
+    exit;
+}
+
 /**
  * Compara los archivos A y B usando las hojas elegidas por el administrador.
  */
@@ -1005,6 +1328,7 @@ $protectedPages = [
     'dashboard',
     'selection',
     'comparison',
+    'merge',
 ];
 
 if (in_array($page, $protectedPages, true) && !$isAuthenticated) {
@@ -1024,6 +1348,7 @@ $allowedPages = [
     'dashboard',
     'selection',
     'comparison',
+    'merge',
 ];
 
 if (!in_array($page, $allowedPages, true)) {
@@ -1081,7 +1406,40 @@ if ($page === 'dashboard') {
 
     // Renderiza exclusivamente la vista del proceso de comparación.
     require $projectRoot . '/templates/comparison/index.php';
+
+
+} elseif ($page === 'merge') {
+    // Recupera los archivos y el resultado de la unión guardados en sesión.
+    $mergeExcelA = $_SESSION['merge_excel_a'] ?? null;
+    $mergeExcelB = $_SESSION['merge_excel_b'] ?? null;
+    $mergeSheetsA = [];
+    $mergeSheetsB = [];
+    $mergeResult = $_SESSION['merge_result'] ?? null;
+
+    // Obtiene las hojas del Excel A cuando existe un archivo temporal.
+    if (is_array($mergeExcelA)) {
+        $mergeSheetResultA = $excelMergeController->getSheetNames($mergeExcelA);
+
+        if ($mergeSheetResultA['success'] === true) {
+            $mergeSheetsA = $mergeSheetResultA['sheets'];
+        }
+    }
+
+    // Obtiene las hojas del Excel B cuando existe un archivo temporal.
+    if (is_array($mergeExcelB)) {
+        $mergeSheetResultB = $excelMergeController->getSheetNames($mergeExcelB);
+
+        if ($mergeSheetResultB['success'] === true) {
+            $mergeSheetsB = $mergeSheetResultB['sheets'];
+        }
+    }
+
+    // Renderiza exclusivamente la vista del proceso de unión.
+    require $projectRoot . '/templates/merge/index.php';
+
+
 } else {
     // Si la página es login, muestra el formulario de autenticación.
     require $projectRoot . '/templates/auth/login.php';
 }
+
