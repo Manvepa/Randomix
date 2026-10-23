@@ -880,3 +880,30 @@ body.is-loading {
     outline: 3px solid var(--color-accent);
     outline-offset: 3px;
 }
+
+
+/* Distribuye los dos procesos en columnas independientes. */
+.dashboard-processes {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 24px;
+}
+
+/* Cada sección puede ocupar todo el ancho de su columna. */
+.dashboard-processes > .dashboard-section {
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+/* La tarjeta única ocupa el ancho completo de su sección. */
+.dashboard-processes .workflow-grid {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+/* En pantallas pequeñas, los procesos se apilan verticalmente. */
+@media (max-width: 768px) {
+    .dashboard-processes {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}

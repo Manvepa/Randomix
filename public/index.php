@@ -630,7 +630,7 @@ if (
     }
 
     // Aplica el patrón POST/Redirect/GET para evitar reenvíos accidentales.
-    header('Location: index.php?page=dashboard');
+    header('Location: index.php?page=selection');
     exit;
 }
 
@@ -760,7 +760,7 @@ if (
     }
 
     // Evita reenviar el formulario al actualizar el navegador.
-    header('Location: index.php?page=dashboard');
+    header('Location: index.php?page=comparison');
     exit;
 }
 
@@ -839,7 +839,7 @@ if (
         }
     }
 
-    header('Location: index.php?page=dashboard');
+    header('Location: index.php?page=comparison');
     exit;
 }
 
@@ -900,7 +900,7 @@ if (
     }
 
     // Evita repetir la validación al actualizar el navegador.
-    header('Location: index.php?page=dashboard');
+    header('Location: index.php?page=selection');
     exit;
 }
 
@@ -973,12 +973,18 @@ if (
     }
 
     // Redirige al panel para evitar repetir el envío al actualizar.
-    header('Location: index.php?page=dashboard');
+    header('Location: index.php?page=selection');
     exit;
 }
 
-// Impide acceder al panel sin una sesión autenticada.
-if ($page === 'dashboard' && !$isAuthenticated) {
+// Impide acceder a las páginas internas sin una sesión autenticada.
+$protectedPages = [
+    'dashboard',
+    'selection',
+    'comparison',
+];
+
+if (in_array($page, $protectedPages, true) && !$isAuthenticated) {
     header('Location: index.php');
     exit;
 }
@@ -990,60 +996,69 @@ if ($page === 'login' && $isAuthenticated) {
 }
 
 // Solo se permite mostrar las páginas conocidas.
-if ($page !== 'login' && $page !== 'dashboard') {
+$allowedPages = [
+    'login',
+    'dashboard',
+    'selection',
+    'comparison',
+];
+
+if (!in_array($page, $allowedPages, true)) {
     http_response_code(404);
     exit('Página no encontrada.');
 }
 
-// Prepara los datos de los Excel temporales para mostrarlos en el panel.
+// Carga la vista correspondiente a la página solicitada.
 if ($page === 'dashboard') {
-    // Datos del Excel utilizado en el sorteo tradicional.
+    // El dashboard solo presenta las opciones de entrada a cada proceso.
+    require $projectRoot . '/templates/dashboard/index.php';
+} elseif ($page === 'selection') {
+    // Recupera los datos del proceso de selección guardados en la sesión.
     $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
     $excelSheets = [];
     $sheetValidation = $_SESSION['sheet_validation'] ?? null;
     $selectionResult = $_SESSION['selection_result'] ?? null;
 
-    // Datos de los Excel utilizados en la comparación independiente.
+    // Obtiene las hojas del Excel de selección cuando existe un archivo temporal.
+    if (is_array($uploadedExcel)) {
+        $sheetResult = $excelInspectionController->getSheetNames($uploadedExcel);
+
+        if ($sheetResult['success'] === true) {
+            $excelSheets = $sheetResult['sheets'];
+        }
+    }
+
+    // Renderiza exclusivamente la vista del proceso de selección.
+    require $projectRoot . '/templates/selection/index.php';
+} elseif ($page === 'comparison') {
+    // Recupera los archivos y el resultado del proceso de comparación.
     $comparisonExcelA = $_SESSION['comparison_excel_a'] ?? null;
     $comparisonExcelB = $_SESSION['comparison_excel_b'] ?? null;
     $comparisonSheetsA = [];
     $comparisonSheetsB = [];
     $comparisonResult = $_SESSION['comparison_result'] ?? null;
 
-    // Obtiene las hojas únicamente si existe un archivo temporal vigente.
-    if (is_array($uploadedExcel)) {
-        $sheetResult = $excelInspectionController->getSheetNames(
-            $uploadedExcel
-        );
-
-        if ($sheetResult['success'] === true) {
-            $excelSheets = $sheetResult['sheets'];
-        } else {
-            $excelSheets = [];
-        }
-    }
-
-    // Obtiene las hojas disponibles del Excel A de la comparación.
+    // Obtiene las hojas del Excel A cuando existe un archivo temporal.
     if (is_array($comparisonExcelA)) {
-        $comparisonSheetResultA = $excelComparisonController
-            ->getSheetNames($comparisonExcelA);
+        $comparisonSheetResultA = $excelComparisonController->getSheetNames($comparisonExcelA);
 
         if ($comparisonSheetResultA['success'] === true) {
             $comparisonSheetsA = $comparisonSheetResultA['sheets'];
         }
     }
 
-    // Obtiene las hojas disponibles del Excel B de la comparación.
+    // Obtiene las hojas del Excel B cuando existe un archivo temporal.
     if (is_array($comparisonExcelB)) {
-        $comparisonSheetResultB = $excelComparisonController
-            ->getSheetNames($comparisonExcelB);
+        $comparisonSheetResultB = $excelComparisonController->getSheetNames($comparisonExcelB);
 
         if ($comparisonSheetResultB['success'] === true) {
             $comparisonSheetsB = $comparisonSheetResultB['sheets'];
         }
     }
 
-    require $projectRoot . '/templates/selection/index.php';
+    // Renderiza exclusivamente la vista del proceso de comparación.
+    require $projectRoot . '/templates/comparison/index.php';
 } else {
+    // Si la página es login, muestra el formulario de autenticación.
     require $projectRoot . '/templates/auth/login.php';
 }
