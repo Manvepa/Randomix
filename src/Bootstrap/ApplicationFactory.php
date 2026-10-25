@@ -69,12 +69,10 @@ final class ApplicationFactory
         );
 
         return [
-            'upload' => $uploadController,
             'temporary_file_cleanup' => $temporaryFileCleanupController,
             'excel_comparison' => $excelComparisonController,
             'excel_merge' => $excelMergeController,
             'excel_inspection' => $excelInspectionController,
-            'selection' => $selectionController,
             'post_action' => $postActionController,
         ];
     }

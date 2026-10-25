@@ -75,12 +75,10 @@ $exportController->handle(
 // Construye los controladores y sus dependencias principales.
 $controllers = ApplicationFactory::create($projectRoot);
 
-$uploadController = $controllers['upload'];
 $temporaryFileCleanupController = $controllers['temporary_file_cleanup'];
 $excelComparisonController = $controllers['excel_comparison'];
 $excelMergeController = $controllers['excel_merge'];
 $excelInspectionController = $controllers['excel_inspection'];
-$selectionController = $controllers['selection'];
 $postActionController = $controllers['post_action'];
 
 // Prepara el controlador encargado de renderizar las páginas.
