@@ -8,6 +8,7 @@ use Randomix\Controllers\ExportController;
 use Randomix\Bootstrap\ApplicationFactory;
 use Randomix\Controllers\PageController;
 use Randomix\Controllers\AuthenticationActionController;
+use Randomix\Controllers\PageAccessController;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -43,10 +44,12 @@ if (
 
 // Inicializa los controladores necesarios.
 $authController = new AuthController();
-
 $authenticationActionController = new AuthenticationActionController(
     $authController
 );
+
+// Prepara el controlador encargado de las reglas de acceso a las páginas.
+$pageAccessController = new PageAccessController();
 
 // Prepara el controlador encargado de las exportaciones.
 $exportController = new ExportController();
@@ -68,12 +71,6 @@ $exportController->handle(
     $_POST,
     $isAuthenticated
 );
-
-// Valida el nombre de la página solicitada.
-if (!is_string($page)) {
-    http_response_code(404);
-    exit('Página no encontrada.');
-}
 
 // Construye los controladores y sus dependencias principales.
 $controllers = ApplicationFactory::create($projectRoot);
@@ -99,50 +96,6 @@ if ($isAuthenticated) {
     $temporaryFileCleanupController->cleanup();
 }
 
-// Procesa el inicio de sesión enviado mediante POST.
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    && $action === 'login'
-) {
-    $tokenRecibido = $_POST['csrf_token'] ?? '';
-
-    // Verifica el token CSRF antes de comprobar las credenciales.
-    if (
-        !is_string($tokenRecibido)
-        || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
-    ) {
-        $errorMessage = 'La solicitud ha expirado. Recarga la página e intenta de nuevo.';
-    } else {
-        $username = $_POST['username'] ?? '';
-        $password = $_POST['password'] ?? '';
-
-        if (!is_string($username) || !is_string($password)) {
-            $errorMessage = 'Las credenciales no son válidas.';
-        } else {
-            try {
-                $loginCorrecto = $authController->login(
-                    $username,
-                    $password
-                );
-
-                if ($loginCorrecto) {
-                    // Renueva el token CSRF después de autenticar.
-                    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-
-                    header('Location: index.php?page=dashboard');
-                    exit;
-                }
-
-                $errorMessage = 'Usuario o contraseña incorrectos.';
-            } catch (Throwable $exception) {
-                error_log($exception->__toString());
-
-                $errorMessage = 'No fue posible procesar el acceso. Intenta nuevamente.';
-            }
-        }
-    }
-}
-
 // Delega el inicio y cierre de sesión al controlador de autenticación.
 $authenticationError = $authenticationActionController->handle(
     $_SERVER['REQUEST_METHOD'],
@@ -160,15 +113,17 @@ $postActionController->handle(
     $isAuthenticated
 );
 
-// Impide acceder a las páginas internas sin una sesión autenticada.
-$protectedPages = [
-    'dashboard',
-    'selection',
-    'comparison',
-    'merge',
-];
+// Valida que el nombre de la página sea válido.
+if (!$pageAccessController->isValidPage($page)) {
+    http_response_code(404);
+    exit('Página no encontrada.');
+}
 
-if (in_array($page, $protectedPages, true) && !$isAuthenticated) {
+// Impide acceder a páginas protegidas sin autenticación.
+if (
+    $pageAccessController->requiresAuthentication($page)
+    && !$isAuthenticated
+) {
     header('Location: index.php');
     exit;
 }
@@ -177,20 +132,6 @@ if (in_array($page, $protectedPages, true) && !$isAuthenticated) {
 if ($page === 'login' && $isAuthenticated) {
     header('Location: index.php?page=dashboard');
     exit;
-}
-
-// Solo se permite mostrar las páginas conocidas.
-$allowedPages = [
-    'login',
-    'dashboard',
-    'selection',
-    'comparison',
-    'merge',
-];
-
-if (!in_array($page, $allowedPages, true)) {
-    http_response_code(404);
-    exit('Página no encontrada.');
 }
 
 // Delega la preparación y el renderizado de la página solicitada.
