@@ -7,6 +7,7 @@ use Randomix\Security\SessionManager;
 use Randomix\Controllers\ExportController;
 use Randomix\Bootstrap\ApplicationFactory;
 use Randomix\Controllers\PageController;
+use Randomix\Controllers\AuthenticationActionController;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -42,6 +43,11 @@ if (
 
 // Inicializa los controladores necesarios.
 $authController = new AuthController();
+
+$authenticationActionController = new AuthenticationActionController(
+    $authController
+);
+
 // Prepara el controlador encargado de las exportaciones.
 $exportController = new ExportController();
 $errorMessage = null;
@@ -137,24 +143,14 @@ if (
     }
 }
 
-// Procesa el cierre de sesión mediante POST y valida el token CSRF.
-if (
-    $_SERVER['REQUEST_METHOD'] === 'POST'
-    && $action === 'logout'
-) {
-    $tokenRecibido = $_POST['csrf_token'] ?? '';
+// Delega el inicio y cierre de sesión al controlador de autenticación.
+$authenticationError = $authenticationActionController->handle(
+    $_SERVER['REQUEST_METHOD'],
+    $action
+);
 
-    if (
-        is_string($tokenRecibido)
-        && hash_equals($_SESSION['csrf_token'], $tokenRecibido)
-    ) {
-        $authController->logout();
-
-        header('Location: index.php');
-        exit;
-    }
-
-    $errorMessage = 'La solicitud de cierre no es válida.';
+if ($authenticationError !== null) {
+    $errorMessage = $authenticationError;
 }
 
 // Delega las acciones POST reconocidas al controlador central.
