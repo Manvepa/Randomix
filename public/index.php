@@ -3,15 +3,10 @@
 declare(strict_types=1);
 
 use Randomix\Controllers\AuthController;
-use Randomix\Controllers\UploadController;
-use Randomix\Controllers\ExcelInspectionController;
 use Randomix\Security\SessionManager;
-use Randomix\Controllers\SelectionController;
-use Randomix\Controllers\ExcelComparisonController;
-use Randomix\Controllers\ExcelMergeController;
 use Randomix\Controllers\ExportController;
-use Randomix\Controllers\TemporaryFileCleanupController;
-use Randomix\Controllers\PostActionController;
+use Randomix\Bootstrap\ApplicationFactory;
+use Randomix\Controllers\PageController;
 
 // Comprueba que las dependencias de Composer estén disponibles.
 $projectRoot = dirname(__DIR__);
@@ -74,52 +69,21 @@ if (!is_string($page)) {
     exit('Página no encontrada.');
 }
 
-// Carga la configuración de importación y prepara el controlador.
-$importConfig = require $projectRoot . '/config/import.php';
+// Construye los controladores y sus dependencias principales.
+$controllers = ApplicationFactory::create($projectRoot);
 
-$uploadController = new UploadController(
+$uploadController = $controllers['upload'];
+$temporaryFileCleanupController = $controllers['temporary_file_cleanup'];
+$excelComparisonController = $controllers['excel_comparison'];
+$excelMergeController = $controllers['excel_merge'];
+$excelInspectionController = $controllers['excel_inspection'];
+$selectionController = $controllers['selection'];
+$postActionController = $controllers['post_action'];
+
+// Prepara el controlador encargado de renderizar las páginas.
+$pageController = new PageController(
     $projectRoot,
-    (int) $importConfig['max_file_size']
-);
-
-// Prepara el controlador encargado de limpiar archivos temporales vencidos.
-$temporaryFileCleanupController = new TemporaryFileCleanupController(
-    $uploadController
-);
-
-// Prepara el controlador independiente de comparación de Excel.
-$excelComparisonController = new ExcelComparisonController(
-    $projectRoot,
-    (int) $importConfig['max_file_size'],
-    $importConfig['required_headers'],
-    (int) $importConfig['max_rows']
-);
-
-// Prepara el controlador independiente para unir dos archivos Excel.
-$excelMergeController = new ExcelMergeController(
-    $projectRoot,
-    (int) $importConfig['max_file_size'],
-    $importConfig['required_headers'],
-    (int) $importConfig['max_rows']
-);
-
-// Prepara el servicio que inspecciona las hojas y valida sus encabezados.
-$excelInspectionController = new ExcelInspectionController(
-    $projectRoot,
-    $importConfig['required_headers']
-);
-
-// Prepara el controlador encargado del procesamiento y la selección.
-$selectionController = new SelectionController(
-    $projectRoot,
-    $importConfig['required_headers']
-);
-
-// Centraliza las acciones POST de los procesos de Randomix.
-$postActionController = new PostActionController(
-    $uploadController,
     $excelInspectionController,
-    $selectionController,
     $excelComparisonController,
     $excelMergeController
 );
@@ -233,89 +197,5 @@ if (!in_array($page, $allowedPages, true)) {
     exit('Página no encontrada.');
 }
 
-// Carga la vista correspondiente a la página solicitada.
-if ($page === 'dashboard') {
-    // El dashboard solo presenta las opciones de entrada a cada proceso.
-    require $projectRoot . '/templates/dashboard/index.php';
-} elseif ($page === 'selection') {
-    // Recupera los datos del proceso de selección guardados en la sesión.
-    $uploadedExcel = $_SESSION['uploaded_excel'] ?? null;
-    $excelSheets = [];
-    $sheetValidation = $_SESSION['sheet_validation'] ?? null;
-    $selectionResult = $_SESSION['selection_result'] ?? null;
-
-    // Obtiene las hojas del Excel de selección cuando existe un archivo temporal.
-    if (is_array($uploadedExcel)) {
-        $sheetResult = $excelInspectionController->getSheetNames($uploadedExcel);
-
-        if ($sheetResult['success'] === true) {
-            $excelSheets = $sheetResult['sheets'];
-        }
-    }
-
-    // Renderiza exclusivamente la vista del proceso de selección.
-    require $projectRoot . '/templates/selection/index.php';
-} elseif ($page === 'comparison') {
-    // Recupera los archivos y el resultado del proceso de comparación.
-    $comparisonExcelA = $_SESSION['comparison_excel_a'] ?? null;
-    $comparisonExcelB = $_SESSION['comparison_excel_b'] ?? null;
-    $comparisonSheetsA = [];
-    $comparisonSheetsB = [];
-    $comparisonResult = $_SESSION['comparison_result'] ?? null;
-
-    // Obtiene las hojas del Excel A cuando existe un archivo temporal.
-    if (is_array($comparisonExcelA)) {
-        $comparisonSheetResultA = $excelComparisonController->getSheetNames($comparisonExcelA);
-
-        if ($comparisonSheetResultA['success'] === true) {
-            $comparisonSheetsA = $comparisonSheetResultA['sheets'];
-        }
-    }
-
-    // Obtiene las hojas del Excel B cuando existe un archivo temporal.
-    if (is_array($comparisonExcelB)) {
-        $comparisonSheetResultB = $excelComparisonController->getSheetNames($comparisonExcelB);
-
-        if ($comparisonSheetResultB['success'] === true) {
-            $comparisonSheetsB = $comparisonSheetResultB['sheets'];
-        }
-    }
-
-    // Renderiza exclusivamente la vista del proceso de comparación.
-    require $projectRoot . '/templates/comparison/index.php';
-
-
-} elseif ($page === 'merge') {
-    // Recupera los archivos y el resultado de la unión guardados en sesión.
-    $mergeExcelA = $_SESSION['merge_excel_a'] ?? null;
-    $mergeExcelB = $_SESSION['merge_excel_b'] ?? null;
-    $mergeSheetsA = [];
-    $mergeSheetsB = [];
-    $mergeResult = $_SESSION['merge_result'] ?? null;
-
-    // Obtiene las hojas del Excel A cuando existe un archivo temporal.
-    if (is_array($mergeExcelA)) {
-        $mergeSheetResultA = $excelMergeController->getSheetNames($mergeExcelA);
-
-        if ($mergeSheetResultA['success'] === true) {
-            $mergeSheetsA = $mergeSheetResultA['sheets'];
-        }
-    }
-
-    // Obtiene las hojas del Excel B cuando existe un archivo temporal.
-    if (is_array($mergeExcelB)) {
-        $mergeSheetResultB = $excelMergeController->getSheetNames($mergeExcelB);
-
-        if ($mergeSheetResultB['success'] === true) {
-            $mergeSheetsB = $mergeSheetResultB['sheets'];
-        }
-    }
-
-    // Renderiza exclusivamente la vista del proceso de unión.
-    require $projectRoot . '/templates/merge/index.php';
-
-
-} else {
-    // Si la página es login, muestra el formulario de autenticación.
-    require $projectRoot . '/templates/auth/login.php';
-}
+// Delega la preparación y el renderizado de la página solicitada.
+$pageController->render($page, $errorMessage);
