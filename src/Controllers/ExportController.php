@@ -6,25 +6,31 @@ namespace Randomix\Controllers;
 
 use Randomix\Services\ExcelExportService;
 use Randomix\Services\PdfPreviewService;
+use Randomix\Services\FileArtifactService;
 use Throwable;
 
 final class ExportController
 {
     private ExcelExportService $excelExportService;
     private PdfPreviewService $pdfPreviewService;
+    private FileArtifactService $fileArtifactService;
 
     /**
-     * Recibe los servicios responsables de generar los archivos.
+     * Recibe los servicios responsables de generar y guardar los archivos.
      */
     public function __construct(
         ?ExcelExportService $excelExportService = null,
-        ?PdfPreviewService $pdfPreviewService = null
+        ?PdfPreviewService $pdfPreviewService = null,
+        ?FileArtifactService $fileArtifactService = null
     ) {
         $this->excelExportService = $excelExportService
             ?? new ExcelExportService();
 
         $this->pdfPreviewService = $pdfPreviewService
             ?? new PdfPreviewService();
+
+        $this->fileArtifactService = $fileArtifactService
+            ?? new FileArtifactService(dirname(__DIR__, 2));
     }
 
     /**
@@ -94,6 +100,41 @@ final class ExportController
         }
     }
 
+
+
+    /**
+     * Guarda permanentemente un Excel generado.
+     *
+     * Si falla el almacenamiento, registra el error y evita que la
+     * descarga se presente como una operación completada correctamente.
+     */
+    private function saveGeneratedExcel(
+        string $content,
+        string $filename
+    ): bool {
+        try {
+            $this->fileArtifactService->save(
+                $content,
+                basename($filename),
+                'xlsx',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+
+            return true;
+        } catch (Throwable $exception) {
+            error_log(
+                'Randomix: no fue posible guardar el Excel generado '
+                . basename($filename)
+                . '. '
+                . $exception->__toString()
+            );
+
+            return false;
+        }
+    }
+
+
+
     /**
      * Envía un archivo Excel como descarga.
      */
@@ -148,6 +189,12 @@ final class ExportController
             exit('No fue posible generar el Excel C.');
         }
 
+
+        if (!$this->saveGeneratedExcel($content, 'Excel_C_unificado.xlsx')) {
+            http_response_code(500);
+            exit('No fue posible guardar el Excel de la unión.');
+        }
+
         $this->sendExcel($content, 'Excel_C_unificado.xlsx');
     }
 
@@ -166,9 +213,9 @@ final class ExportController
         if (
             !is_array($comparisonResult)
             || !isset(
-                $comparisonResult['headers'],
-                $comparisonResult['records']
-            )
+            $comparisonResult['headers'],
+            $comparisonResult['records']
+        )
             || !is_array($comparisonResult['headers'])
             || $comparisonResult['headers'] === []
             || !is_array($comparisonResult['records'])
@@ -188,7 +235,14 @@ final class ExportController
             exit('No fue posible generar el Excel de la comparación.');
         }
 
+
+        if (!$this->saveGeneratedExcel($content, 'Actualizacion_Estudiantes.xlsx')) {
+            http_response_code(500);
+            exit('No fue posible guardar el Excel de la comparación.');
+        }
+
         $this->sendExcel($content, 'Actualizacion_Estudiantes.xlsx');
+
     }
 
     /**
@@ -295,6 +349,14 @@ final class ExportController
             'not_selected' => 'estudiantes_no_seleccionados.xlsx',
             'alternates' => 'estudiantes_suplentes.xlsx',
         };
+
+        // Guarda el archivo antes de enviarlo al navegador.
+
+        if (!$this->saveGeneratedExcel($content, $filename)) {
+            http_response_code(500);
+            exit('No fue posible guardar el Excel de la selección.');
+        }
+
 
         $this->sendExcel($content, $filename);
     }

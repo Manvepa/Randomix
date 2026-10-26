@@ -5,6 +5,7 @@
 
 /storage/temporary/*
 !/storage/temporary/.gitkeep
+/storage/records/*
 
 /storage/logs/*
 !/storage/logs/.gitkeep

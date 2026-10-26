@@ -112,6 +112,7 @@ final class PostActionController
                     $_SESSION['uploaded_excel'] = [
                         'filename' => $result['stored_filename'],
                         'original_name' => $result['original_name'],
+                        'artifact_id' => $result['artifact_id'],
                         'uploaded_at' => $now,
                         'expires_at' => $now + 900,
                     ];

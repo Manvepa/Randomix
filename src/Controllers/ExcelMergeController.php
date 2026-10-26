@@ -74,16 +74,19 @@ final class ExcelMergeController
 
         $now = time();
 
+
         return [
             'success' => true,
             'file' => [
                 'filename' => $result['stored_filename'],
                 'original_name' => $result['original_name'],
+                'artifact_id' => $result['artifact_id'],
                 'uploaded_at' => $now,
                 'expires_at' => $now + 900,
             ],
             'errors' => [],
         ];
+
     }
 
     /**
@@ -173,8 +176,8 @@ final class ExcelMergeController
                 'result' => null,
                 'errors' => [
                     $exception instanceof RuntimeException
-                        ? $exception->getMessage()
-                        : 'No fue posible unir los archivos Excel.',
+                    ? $exception->getMessage()
+                    : 'No fue posible unir los archivos Excel.',
                 ],
             ];
         }
