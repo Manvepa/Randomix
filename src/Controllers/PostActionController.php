@@ -6,6 +6,8 @@ namespace Randomix\Controllers;
 
 use RuntimeException;
 use Throwable;
+use Randomix\Services\ComparisonPersistenceService;
+use Randomix\Support\Database;
 
 final class PostActionController
 {
@@ -14,7 +16,8 @@ final class PostActionController
         private readonly ExcelInspectionController $excelInspectionController,
         private readonly SelectionController $selectionController,
         private readonly ExcelComparisonController $excelComparisonController,
-        private readonly ExcelMergeController $excelMergeController
+        private readonly ExcelMergeController $excelMergeController,
+        private readonly ComparisonPersistenceService $comparisonPersistenceService
     ) {
     }
 
@@ -548,20 +551,48 @@ final class PostActionController
             $sheetA = $_POST['comparison_sheet_a'] ?? '';
             $sheetB = $_POST['comparison_sheet_b'] ?? '';
 
+
+            // Recibe los años enviados por el formulario.
+            $previousYearInput = $_POST['comparison_previous_year'] ?? null;
+            $currentYearInput = $_POST['comparison_current_year'] ?? null;
+
+            // Conserva los valores para volver a mostrarlos si hay errores.
+            if (is_string($previousYearInput)) {
+                $_SESSION['comparison_previous_year'] = $previousYearInput;
+            }
+
+            if (is_string($currentYearInput)) {
+                $_SESSION['comparison_current_year'] = $currentYearInput;
+            }
+
+            // Valida el formato, el rango y el orden de los años.
+            $validYears = is_string($previousYearInput)
+                && ctype_digit($previousYearInput)
+                && (int) $previousYearInput >= 1900
+                && (int) $previousYearInput <= 2200
+                && is_string($currentYearInput)
+                && ctype_digit($currentYearInput)
+                && (int) $currentYearInput >= 1900
+                && (int) $currentYearInput <= 2200
+                && (int) $currentYearInput > (int) $previousYearInput;
+
             // Comprueba que existan los archivos y las hojas seleccionadas.
+
             if (
-                !is_array($fileA)
+                !$validYears
+                || !is_array($fileA)
                 || !is_array($fileB)
                 || !is_string($sheetA)
                 || trim($sheetA) === ''
                 || !is_string($sheetB)
                 || trim($sheetB) === ''
             ) {
+
                 unset($_SESSION['comparison_result']);
 
                 $_SESSION['comparison_feedback'] = [
                     'type' => 'error',
-                    'message' => 'Debes cargar ambos archivos y seleccionar una hoja en cada uno.',
+                    'message' => 'Debes indicar años válidos (el año actual debe ser posterior al anterior), cargar ambos archivos y seleccionar una hoja en cada uno.',
                 ];
             } else {
                 // Ejecuta la comparación mediante el controlador especializado.
@@ -573,11 +604,80 @@ final class PostActionController
                 );
 
                 if ($result['success'] === true) {
+                    // Primero persiste la comparación y sus resultados.
+                    // Si esta operación falla, se informa el error de guardado.
+                    try {
+                        // Obtiene y valida el identificador del administrador autenticado.
+                        $adminId = $_SESSION['admin']['id'] ?? null;
+
+                        if (
+                            (!is_int($adminId) && !is_string($adminId))
+                            || !ctype_digit((string) $adminId)
+                            || (int) $adminId <= 0
+                        ) {
+                            throw new RuntimeException(
+                                'No existe un identificador administrativo válido en la sesión.'
+                            );
+                        }
+
+                        // Persiste la comparación utilizando un identificador validado.
+                        $persistenceResult = $this->comparisonPersistenceService->persist(
+                            $result['result'],
+                            (int) $previousYearInput,
+                            (int) $currentYearInput,
+                            (int) $adminId
+                        );
+                    } catch (Throwable $exception) {
+                        error_log(
+                            '[Randomix][Error al persistir comparación] '
+                            . $exception->__toString()
+                        );
+
+                        unset($_SESSION['comparison_result']);
+
+                        $_SESSION['comparison_feedback'] = [
+                            'type' => 'error',
+                            'message' => 'La comparación se procesó, pero no fue posible guardar sus resultados en la base de datos.',
+                        ];
+
+                        header('Location: index.php?page=comparison');
+                        exit;
+                    }
+
+                    
+                    // Registra únicamente metadatos técnicos de la persistencia.
+                    // No escribe nombres, documentos, direcciones ni otros datos personales.
+                    try {
+                        error_log(
+                            '[Randomix][ComparacionPersistida] '
+                            . json_encode(
+                                [
+                                    'comparison_id' => $persistenceResult['comparison_id'],
+                                    'dataset_id' => $persistenceResult['dataset_id'],
+                                    'version_number' => $persistenceResult['version_number'],
+                                    'row_count' => $persistenceResult['row_count'],
+                                ],
+                                JSON_UNESCAPED_UNICODE
+                                | JSON_UNESCAPED_SLASHES
+                                | JSON_THROW_ON_ERROR
+                            )
+                        );
+                    } catch (Throwable $exception) {
+                        error_log(
+                            '[Randomix][Error al registrar metadatos de comparación] '
+                            . get_class($exception)
+                        );
+                    }
+
+
+                    // La comparación guardada se conserva disponible para mostrar el resultado.
                     $_SESSION['comparison_result'] = $result['result'];
+                    $_SESSION['comparison_previous_year'] = (int) $previousYearInput;
+                    $_SESSION['comparison_current_year'] = (int) $currentYearInput;
 
                     $_SESSION['comparison_feedback'] = [
                         'type' => 'success',
-                        'message' => 'La comparación terminó correctamente.',
+                        'message' => 'La comparación terminó correctamente y sus resultados se guardaron en la base de datos.',
                     ];
                 } else {
                     unset($_SESSION['comparison_result']);
@@ -592,6 +692,7 @@ final class PostActionController
                         ),
                     ];
                 }
+
             }
         }
 
