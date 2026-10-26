@@ -11,6 +11,8 @@ use Randomix\Controllers\PostActionController;
 use Randomix\Controllers\SelectionController;
 use Randomix\Controllers\TemporaryFileCleanupController;
 use Randomix\Controllers\UploadController;
+use Randomix\Services\ComparisonPersistenceService;
+use Randomix\Support\Database;
 
 final class ApplicationFactory
 {
@@ -60,12 +62,18 @@ final class ApplicationFactory
             $requiredHeaders
         );
 
+        // Prepara el servicio encargado de persistir las comparaciones.
+        $comparisonPersistenceService = new ComparisonPersistenceService(
+            Database::getConnection()
+        );
+
         $postActionController = new PostActionController(
             $uploadController,
             $excelInspectionController,
             $selectionController,
             $excelComparisonController,
-            $excelMergeController
+            $excelMergeController,
+            $comparisonPersistenceService
         );
 
         return [

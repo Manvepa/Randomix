@@ -146,7 +146,7 @@ ob_start();
 
         <div class="form-group">
             <label for="comparison-file-b">
-                Excel B — Estudiantes del año pasado
+                Excel B — Estudiantes del año anterior
             </label>
 
             <input type="file" id="comparison-file-b" name="comparison_excel_b_file" accept=".xlsx,.xls" required>
@@ -231,6 +231,53 @@ ob_start();
                     <?php endforeach; ?>
                 </select>
             </div>
+
+
+            <!-- Solicita los años que identifican esta comparación. -->
+            <div class="form-group">
+                <label for="comparison-previous-year">
+                    Año actual
+                </label>
+
+                <input
+                    type="number"
+                    id="comparison-previous-year"
+                    name="comparison_previous_year"
+                    min="1900"
+                    max="2200"
+                    step="1"
+                    value="<?= htmlspecialchars(
+                        (string) ($_SESSION['comparison_previous_year'] ?? ''),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    placeholder="Ejemplo: 2026"
+                    required
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="comparison-current-year">
+                    Año anterior
+                </label>
+
+                <input
+                    type="number"
+                    id="comparison-current-year"
+                    name="comparison_current_year"
+                    min="1900"
+                    max="2200"
+                    step="1"
+                    value="<?= htmlspecialchars(
+                        (string) ($_SESSION['comparison_current_year'] ?? ''),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>"
+                    placeholder="Ejemplo: 2025"
+                    required
+                >
+            </div>
+
 
             <button type="submit" class="button button-primary">
                 Ejecutar comparación

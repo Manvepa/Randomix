@@ -35,6 +35,7 @@ final class ExcelComparisonService
      *     headers: array<int, string>,
      *     records: array<int, array<string, mixed>>,
      *     total_original: int,
+     *     total_previous: int,
      *     coincidences_removed: int,
      *     remaining: int
      * }
@@ -182,6 +183,7 @@ final class ExcelComparisonService
             'headers' => $headersA,
             'records' => $records,
             'total_original' => $totalOriginal,
+            'total_previous' => $recordCountB,
             'coincidences_removed' => $coincidencesRemoved,
             'remaining' => count($records),
         ];
