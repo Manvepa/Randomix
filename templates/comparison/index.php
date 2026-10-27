@@ -40,7 +40,7 @@ ob_start();
 ?>
 
 <!-- Facilita el regreso al dashboard principal. -->
- <br>
+<br>
 <div class="page-actions">
     <a class="button button-primary" href="index.php?page=dashboard">
         ← Volver al dashboard
@@ -125,7 +125,7 @@ ob_start();
     <?php endif; ?>
 
     <!-- Permite cargar los dos archivos en una única solicitud. -->
-    <form class="upload-form" method="post" action="index.php?page=comparison" enctype="multipart/form-data">
+    <form class="upload-form comparison-form comparison-form--files" method="post" action="index.php?page=comparison" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
             (string) ($_SESSION['csrf_token'] ?? ''),
             ENT_QUOTES,
@@ -175,7 +175,7 @@ ob_start();
             </p>
         </div>
 
-        <form class="upload-form" method="post" action="index.php?page=comparison">
+        <form class="upload-form comparison-form comparison-form--sheets" method="post" action="index.php?page=comparison">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
                 (string) ($_SESSION['csrf_token'] ?? ''),
                 ENT_QUOTES,
@@ -233,50 +233,34 @@ ob_start();
             </div>
 
 
+
             <!-- Solicita los años que identifican esta comparación. -->
             <div class="form-group">
-                <label for="comparison-previous-year">
+                <label for="comparison-current-year">
                     Año actual
                 </label>
 
-                <input
-                    type="number"
-                    id="comparison-previous-year"
-                    name="comparison_previous_year"
-                    min="1900"
-                    max="2200"
-                    step="1"
-                    value="<?= htmlspecialchars(
-                        (string) ($_SESSION['comparison_previous_year'] ?? ''),
-                        ENT_QUOTES,
-                        'UTF-8'
-                    ) ?>"
-                    placeholder="Ejemplo: 2026"
-                    required
-                >
-            </div>
-
-            <div class="form-group">
-                <label for="comparison-current-year">
-                    Año anterior
-                </label>
-
-                <input
-                    type="number"
-                    id="comparison-current-year"
-                    name="comparison_current_year"
-                    min="1900"
-                    max="2200"
-                    step="1"
-                    value="<?= htmlspecialchars(
+                <input type="number" id="comparison-current-year" name="comparison_current_year" min="1900" max="2200"
+                    step="1" value="<?= htmlspecialchars(
                         (string) ($_SESSION['comparison_current_year'] ?? ''),
                         ENT_QUOTES,
                         'UTF-8'
-                    ) ?>"
-                    placeholder="Ejemplo: 2025"
-                    required
-                >
+                    ) ?>" placeholder="Ejemplo: 2026" required>
             </div>
+
+            <div class="form-group">
+                <label for="comparison-previous-year">
+                    Año anterior
+                </label>
+
+                <input type="number" id="comparison-previous-year" name="comparison_previous_year" min="1900" max="2200"
+                    step="1" value="<?= htmlspecialchars(
+                        (string) ($_SESSION['comparison_previous_year'] ?? ''),
+                        ENT_QUOTES,
+                        'UTF-8'
+                    ) ?>" placeholder="Ejemplo: 2025" required>
+            </div>
+
 
 
             <button type="submit" class="button button-primary">
@@ -365,7 +349,7 @@ ob_start();
     </section>
 <?php endif; ?>
 
- <br>
+<br>
 <div class="page-actions">
     <a class="button button-primary" href="index.php?page=dashboard">
         ← Volver al dashboard

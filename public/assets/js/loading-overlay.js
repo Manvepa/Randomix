@@ -27,6 +27,15 @@
         execute_comparison: {
             title: 'Comparando los archivos Excel',
             description: 'Estamos buscando coincidencias entre los documentos y calculando los registros restantes.'
+        },
+
+        upload_merge_files: {
+            title: 'Cargando los archivos para la unión',
+            description: 'Estamos guardando Excel A y Excel B y preparando sus hojas. Por favor, espera.'
+        },
+        execute_merge: {
+            title: 'Uniendo los archivos Excel',
+            description: 'Estamos procesando los registros, comprobando los documentos duplicados y preparando el resultado.'
         }
     };
 

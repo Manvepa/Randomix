@@ -23,7 +23,7 @@ $showAuthenticatedLayout = $showAuthenticatedLayout ?? false;
         'UTF-8'
     ) ?></title>
 
-    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="stylesheet" href="assets/css/app.css?v=2">
 </head>
 <body>
     <?php if ($showAuthenticatedLayout): ?>

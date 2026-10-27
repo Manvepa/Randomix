@@ -121,7 +121,7 @@ ob_start();
         </div>
     <?php endif; ?>
 
-    <form class="upload-form" method="post" action="index.php?page=merge" enctype="multipart/form-data">
+    <form class="upload-form merge-form merge-form--files" method="post" action="index.php?page=merge" enctype="multipart/form-data">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
             (string) ($_SESSION['csrf_token'] ?? ''),
             ENT_QUOTES,
@@ -164,7 +164,7 @@ ob_start();
             </p>
         </div>
 
-        <form class="upload-form" method="post" action="index.php?page=merge">
+        <form class="upload-form merge-form merge-form--sheets" method="post" action="index.php?page=merge">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(
                 (string) ($_SESSION['csrf_token'] ?? ''),
                 ENT_QUOTES,
