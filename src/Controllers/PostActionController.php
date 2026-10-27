@@ -11,6 +11,7 @@ use Randomix\Services\SelectionPersistenceService;
 use Randomix\Support\Database;
 use Randomix\Services\ExcelExportService;
 use Randomix\Services\FileArtifactService;
+use Randomix\Services\MergePersistenceService;
 
 final class PostActionController
 {
@@ -23,7 +24,8 @@ final class PostActionController
         private readonly ComparisonPersistenceService $comparisonPersistenceService,
         private readonly SelectionPersistenceService $selectionPersistenceService,
         private readonly ExcelExportService $excelExportService,
-        private readonly FileArtifactService $fileArtifactService
+        private readonly FileArtifactService $fileArtifactService,
+        private readonly MergePersistenceService $mergePersistenceService
     ) {
     }
 
@@ -230,7 +232,10 @@ final class PostActionController
                         $_SESSION['comparison_excel_b'] = $resultB['file'];
 
                         // Invalida el resultado anterior al cambiar los archivos.
-                        unset($_SESSION['comparison_result']);
+                        unset(
+                            $_SESSION['comparison_result'],
+                            $_SESSION['comparison_result_artifact_id']
+                        );
 
                         $_SESSION['comparison_feedback'] = [
                             'type' => 'success',
@@ -241,7 +246,8 @@ final class PostActionController
                         unset(
                             $_SESSION['comparison_excel_a'],
                             $_SESSION['comparison_excel_b'],
-                            $_SESSION['comparison_result']
+                            $_SESSION['comparison_result'],
+                            $_SESSION['comparison_result_artifact_id']
                         );
 
                         $errors = [];
@@ -273,7 +279,8 @@ final class PostActionController
                     unset(
                         $_SESSION['comparison_excel_a'],
                         $_SESSION['comparison_excel_b'],
-                        $_SESSION['comparison_result']
+                        $_SESSION['comparison_result'],
+                        $_SESSION['comparison_result_artifact_id']
                     );
 
                     $_SESSION['comparison_feedback'] = [
@@ -354,19 +361,24 @@ final class PostActionController
                         $_SESSION['merge_excel_a'] = $resultA['file'];
                         $_SESSION['merge_excel_b'] = $resultB['file'];
 
-                        // Invalida resultados anteriores para evitar descargar datos obsoletos.
-                        unset($_SESSION['merge_result']);
-
+                        // Invalida el resultado anterior y sus identificadores asociados.
+                        unset(
+                            $_SESSION['merge_result'],
+                            $_SESSION['merge_result_artifact_id'],
+                            $_SESSION['merge_run_id']
+                        );
                         $_SESSION['merge_feedback'] = [
                             'type' => 'success',
                             'message' => 'Ambos archivos se cargaron correctamente. Estarán disponibles durante 15 minutos.',
                         ];
                     } else {
-                        // Evita mezclar archivos nuevos con archivos anteriores.
+                        // Elimina los archivos de sesión y cualquier resultado anterior.
                         unset(
                             $_SESSION['merge_excel_a'],
                             $_SESSION['merge_excel_b'],
-                            $_SESSION['merge_result']
+                            $_SESSION['merge_result'],
+                            $_SESSION['merge_result_artifact_id'],
+                            $_SESSION['merge_run_id']
                         );
 
                         $errors = [];
@@ -415,6 +427,7 @@ final class PostActionController
     }
 
 
+
     /**
      * Ejecuta la unión de los dos archivos Excel cargados.
      */
@@ -428,12 +441,19 @@ final class PostActionController
 
         // Comprueba el token CSRF antes de procesar los archivos.
         $tokenRecibido = $_POST['csrf_token'] ?? '';
+        $tokenSesion = $_SESSION['csrf_token'] ?? '';
 
         if (
             !is_string($tokenRecibido)
-            || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
+            || !is_string($tokenSesion)
+            || $tokenSesion === ''
+            || !hash_equals($tokenSesion, $tokenRecibido)
         ) {
-            unset($_SESSION['merge_result']);
+            unset(
+                $_SESSION['merge_result'],
+                $_SESSION['merge_result_artifact_id'],
+                $_SESSION['merge_run_id']
+            );
 
             $_SESSION['merge_feedback'] = [
                 'type' => 'error',
@@ -445,7 +465,7 @@ final class PostActionController
             $sheetA = $_POST['merge_sheet_a'] ?? '';
             $sheetB = $_POST['merge_sheet_b'] ?? '';
 
-            // Comprueba que existan los archivos y las hojas seleccionadas.
+            // Comprueba que existan ambos archivos y las hojas seleccionadas.
             if (
                 !is_array($fileA)
                 || !is_array($fileB)
@@ -454,23 +474,34 @@ final class PostActionController
                 || !is_string($sheetB)
                 || trim($sheetB) === ''
             ) {
-                unset($_SESSION['merge_result']);
+                unset(
+                    $_SESSION['merge_result'],
+                    $_SESSION['merge_result_artifact_id'],
+                    $_SESSION['merge_run_id']
+                );
 
                 $_SESSION['merge_feedback'] = [
                     'type' => 'error',
                     'message' => 'Debes cargar ambos archivos y seleccionar una hoja en cada uno.',
                 ];
             } else {
+                // Evita conservar resultados anteriores si falla la nueva ejecución.
+                unset(
+                    $_SESSION['merge_result'],
+                    $_SESSION['merge_result_artifact_id'],
+                    $_SESSION['merge_run_id']
+                );
+
                 try {
                     // Obtiene las hojas disponibles de cada archivo temporal.
                     $sheetsA = $this->excelMergeController->getSheetNames($fileA);
                     $sheetsB = $this->excelMergeController->getSheetNames($fileB);
 
                     $validSheetA = ($sheetsA['success'] ?? false) === true
-                        && in_array($sheetA, $sheetsA['sheets'], true);
+                        && in_array($sheetA, $sheetsA['sheets'] ?? [], true);
 
                     $validSheetB = ($sheetsB['success'] ?? false) === true
-                        && in_array($sheetB, $sheetsB['sheets'], true);
+                        && in_array($sheetB, $sheetsB['sheets'] ?? [], true);
 
                     if (!$validSheetA || !$validSheetB) {
                         throw new RuntimeException(
@@ -478,38 +509,131 @@ final class PostActionController
                         );
                     }
 
+                    // Recupera los identificadores de los archivos originales.
+                    $fileAId = $fileA['artifact_id'] ?? null;
+                    $fileBId = $fileB['artifact_id'] ?? null;
+
+                    if (
+                        !is_int($fileAId)
+                        || $fileAId <= 0
+                        || !is_int($fileBId)
+                        || $fileBId <= 0
+                    ) {
+                        throw new RuntimeException(
+                            'No fue posible identificar los archivos originales de la unión.'
+                        );
+                    }
+
                     // Ejecuta la unión respetando las reglas definidas en el servicio.
                     $result = $this->excelMergeController->merge(
                         $fileA,
-                        $sheetA,
+                        trim($sheetA),
                         $fileB,
-                        $sheetB
+                        trim($sheetB)
                     );
 
-                    if (($result['success'] ?? false) === true) {
-                        $_SESSION['merge_result'] = $result['result'];
-
-                        $_SESSION['merge_feedback'] = [
-                            'type' => 'success',
-                            'message' => 'La unión de los archivos terminó correctamente.',
-                        ];
-                    } else {
-                        unset($_SESSION['merge_result']);
-
-                        $_SESSION['merge_feedback'] = [
-                            'type' => 'error',
-                            'message' => implode(
+                    if (($result['success'] ?? false) !== true) {
+                        throw new RuntimeException(
+                            implode(
                                 ' ',
                                 $result['errors'] ?? [
                                     'No fue posible unir los archivos Excel.',
                                 ]
-                            ),
-                        ];
+                            )
+                        );
                     }
-                } catch (Throwable $exception) {
-                    error_log($exception->__toString());
 
-                    unset($_SESSION['merge_result']);
+                    // Comprueba la estructura del resultado antes de exportarlo.
+                    $mergeResult = $result['result'] ?? null;
+
+                    if (
+                        !is_array($mergeResult)
+                        || !isset($mergeResult['headers'], $mergeResult['records'])
+                        || !is_array($mergeResult['headers'])
+                        || !is_array($mergeResult['records'])
+                    ) {
+                        throw new RuntimeException(
+                            'El resultado de la unión no tiene una estructura válida.'
+                        );
+                    }
+
+                    // Genera el Excel definitivo en memoria.
+                    $content = $this->excelExportService->generate(
+                        $mergeResult['headers'],
+                        $mergeResult['records'],
+                        [],
+                        [],
+                        true
+                    );
+
+                    // Registra el archivo y la ejecución dentro de una transacción.
+                    // Ambos servicios deben compartir la misma conexión PDO.
+                    $connection = Database::getConnection();
+
+                    $connection->beginTransaction();
+
+                    try {
+                        $resultArtifact = $this->fileArtifactService->save(
+                            $content,
+                            'Excel_C_unificado.xlsx',
+                            'xlsx',
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                        );
+
+                        $resultArtifactId = $resultArtifact['id'] ?? null;
+
+                        if (!is_int($resultArtifactId) || $resultArtifactId <= 0) {
+                            throw new RuntimeException(
+                                'No fue posible identificar el Excel resultante guardado.'
+                            );
+                        }
+
+                        $mergePersistence = $this->mergePersistenceService->persist(
+                            $mergeResult,
+                            $fileAId,
+                            $fileBId,
+                            $resultArtifactId,
+                            trim($sheetA),
+                            trim($sheetB)
+                        );
+
+                        $mergeRunId = $mergePersistence['merge_id'] ?? null;
+
+                        if (!is_int($mergeRunId) || $mergeRunId <= 0) {
+                            throw new RuntimeException(
+                                'No fue posible registrar la ejecución de la unión.'
+                            );
+                        }
+
+                        $connection->commit();
+                    } catch (Throwable $exception) {
+                        if ($connection->inTransaction()) {
+                            $connection->rollBack();
+                        }
+
+                        throw $exception;
+                    }
+
+                    // Conserva el resultado y sus identificadores para consultas y descargas.
+                    $_SESSION['merge_result'] = $mergeResult;
+                    $_SESSION['merge_result_artifact_id'] = $resultArtifactId;
+                    $_SESSION['merge_run_id'] = $mergeRunId;
+
+                    $_SESSION['merge_feedback'] = [
+                        'type' => 'success',
+                        'message' => 'La unión terminó correctamente y quedó registrada.',
+                    ];
+                } catch (Throwable $exception) {
+                    error_log(
+                        '[Randomix][Error al unir archivos Excel] '
+                        . $exception->__toString()
+                    );
+
+                    unset(
+                        $_SESSION['merge_result'],
+                        $_SESSION['merge_result_artifact_id'],
+                        $_SESSION['merge_run_id']
+                    );
 
                     $_SESSION['merge_feedback'] = [
                         'type' => 'error',
@@ -525,6 +649,7 @@ final class PostActionController
         header('Location: index.php?page=merge');
         exit;
     }
+
 
 
     /**
@@ -545,7 +670,10 @@ final class PostActionController
             !is_string($tokenRecibido)
             || !hash_equals($_SESSION['csrf_token'], $tokenRecibido)
         ) {
-            unset($_SESSION['comparison_result']);
+            unset(
+                $_SESSION['comparison_result'],
+                $_SESSION['comparison_result_artifact_id']
+            );
 
             $_SESSION['comparison_feedback'] = [
                 'type' => 'error',
@@ -594,7 +722,10 @@ final class PostActionController
                 || trim($sheetB) === ''
             ) {
 
-                unset($_SESSION['comparison_result']);
+                unset(
+                    $_SESSION['comparison_result'],
+                    $_SESSION['comparison_result_artifact_id']
+                );
 
                 $_SESSION['comparison_feedback'] = [
                     'type' => 'error',
@@ -609,84 +740,102 @@ final class PostActionController
                     $sheetB
                 );
 
-                if ($result['success'] === true) {
-                    // Primero persiste la comparación y sus resultados.
-                    // Si esta operación falla, se informa el error de guardado.
+
+                if (($result['success'] ?? false) === true) {
                     try {
-                        // Obtiene y valida el identificador del administrador autenticado.
-                        $adminId = $_SESSION['admin']['id'] ?? null;
+                        // Obtiene los identificadores de los dos archivos originales.
+                        $fileAId = $fileA['artifact_id'] ?? null;
+                        $fileBId = $fileB['artifact_id'] ?? null;
 
                         if (
-                            (!is_int($adminId) && !is_string($adminId))
-                            || !ctype_digit((string) $adminId)
-                            || (int) $adminId <= 0
+                            !is_int($fileAId)
+                            || $fileAId <= 0
+                            || !is_int($fileBId)
+                            || $fileBId <= 0
                         ) {
                             throw new RuntimeException(
-                                'No existe un identificador administrativo válido en la sesión.'
+                                'No se encontraron identificadores válidos para los Excel originales.'
                             );
                         }
 
-                        // Persiste la comparación utilizando un identificador validado.
+                        // Recupera los registros y encabezados generados por la comparación.
+                        $comparisonResult = $result['result'];
+
+                        // Genera el Excel en memoria utilizando el formato existente.
+                        $content = $this->excelExportService->generate(
+                            $comparisonResult['headers'],
+                            $comparisonResult['records']
+                        );
+
+                        $mimeType =
+                            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+                        // Guarda el archivo resultante en el catálogo de artefactos.
+                        $resultArtifact = $this->fileArtifactService->save(
+                            $content,
+                            'Actualizacion_Estudiantes.xlsx',
+                            'xlsx',
+                            $mimeType
+                        );
+
+                        // Registra la ejecución y sus tres referencias de archivo.
                         $persistenceResult = $this->comparisonPersistenceService->persist(
-                            $result['result'],
-                            (int) $previousYearInput,
-                            (int) $currentYearInput,
-                            (int) $adminId
-                        );
-                    } catch (Throwable $exception) {
-                        error_log(
-                            '[Randomix][Error al persistir comparación] '
-                            . $exception->__toString()
+                            $comparisonResult,
+                            $fileAId,
+                            $fileBId,
+                            (int) $resultArtifact['id'],
+                            $sheetA,
+                            $sheetB
                         );
 
-                        unset($_SESSION['comparison_result']);
+                        // Conserva el resultado y su archivo para consultas y descargas.
+                        $_SESSION['comparison_result'] = $comparisonResult;
+                        $_SESSION['comparison_result_artifact_id'] =
+                            (int) $resultArtifact['id'];
 
-                        $_SESSION['comparison_feedback'] = [
-                            'type' => 'error',
-                            'message' => 'La comparación se procesó, pero no fue posible guardar sus resultados en la base de datos.',
-                        ];
+                        $_SESSION['comparison_previous_year'] = (int) $previousYearInput;
+                        $_SESSION['comparison_current_year'] = (int) $currentYearInput;
 
-                        header('Location: index.php?page=comparison');
-                        exit;
-                    }
-
-
-                    // Registra únicamente metadatos técnicos de la persistencia.
-                    // No escribe nombres, documentos, direcciones ni otros datos personales.
-                    try {
+                        // Registra únicamente metadatos técnicos, sin datos personales.
                         error_log(
                             '[Randomix][ComparacionPersistida] '
                             . json_encode(
                                 [
                                     'comparison_id' => $persistenceResult['comparison_id'],
-                                    'dataset_id' => $persistenceResult['dataset_id'],
-                                    'version_number' => $persistenceResult['version_number'],
-                                    'row_count' => $persistenceResult['row_count'],
+                                    'result_file_id' => $persistenceResult['result_file_id'],
+                                    'remaining' => $persistenceResult['remaining'],
                                 ],
                                 JSON_UNESCAPED_UNICODE
                                 | JSON_UNESCAPED_SLASHES
                                 | JSON_THROW_ON_ERROR
                             )
                         );
+
+                        $_SESSION['comparison_feedback'] = [
+                            'type' => 'success',
+                            'message' => 'La comparación terminó correctamente y sus resultados se guardaron en la base de datos.',
+                        ];
                     } catch (Throwable $exception) {
                         error_log(
-                            '[Randomix][Error al registrar metadatos de comparación] '
-                            . get_class($exception)
+                            '[Randomix][Error al persistir comparación] '
+                            . $exception->__toString()
                         );
+
+                        unset(
+                            $_SESSION['comparison_result'],
+                            $_SESSION['comparison_result_artifact_id']
+                        );
+
+                        $_SESSION['comparison_feedback'] = [
+                            'type' => 'error',
+                            'message' => 'La comparación se procesó, pero no fue posible guardar sus resultados en la base de datos.',
+                        ];
                     }
-
-
-                    // La comparación guardada se conserva disponible para mostrar el resultado.
-                    $_SESSION['comparison_result'] = $result['result'];
-                    $_SESSION['comparison_previous_year'] = (int) $previousYearInput;
-                    $_SESSION['comparison_current_year'] = (int) $currentYearInput;
-
-                    $_SESSION['comparison_feedback'] = [
-                        'type' => 'success',
-                        'message' => 'La comparación terminó correctamente y sus resultados se guardaron en la base de datos.',
-                    ];
                 } else {
-                    unset($_SESSION['comparison_result']);
+                    unset(
+                        $_SESSION['comparison_result'],
+                        $_SESSION['comparison_result_artifact_id']
+                    );
 
                     $_SESSION['comparison_feedback'] = [
                         'type' => 'error',
@@ -698,7 +847,6 @@ final class PostActionController
                         ),
                     ];
                 }
-
             }
         }
 

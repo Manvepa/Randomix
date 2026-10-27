@@ -16,6 +16,7 @@ use Randomix\Support\Database;
 use Randomix\Services\SelectionPersistenceService;
 use Randomix\Services\ExcelExportService;
 use Randomix\Services\FileArtifactService;
+use Randomix\Services\MergePersistenceService;
 
 final class ApplicationFactory
 {
@@ -73,6 +74,11 @@ final class ApplicationFactory
             $connection
         );
 
+        // Prepara el servicio encargado de persistir las uniones de Excel.
+        $mergePersistenceService = new MergePersistenceService(
+            $connection
+        );
+
         // Prepara el servicio encargado de persistir las selecciones.
         $selectionPersistenceService = new SelectionPersistenceService(
             $connection
@@ -96,7 +102,8 @@ final class ApplicationFactory
             $comparisonPersistenceService,
             $selectionPersistenceService,
             $excelExportService,
-            $fileArtifactService
+            $fileArtifactService,
+            $mergePersistenceService
         );
 
         return [

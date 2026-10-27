@@ -154,101 +154,97 @@ final class ExportController
         exit;
     }
 
+
     /**
-     * Exporta el resultado de la unión de los archivos Excel.
+     * Descarga el Excel de una unión previamente ejecutada.
+     *
+     * Recupera el artefacto existente sin volver a generar ni guardar el archivo.
      */
     private function exportMerge(array $post, bool $isAuthenticated): void
     {
+        // Verifica autenticación y protección CSRF.
         $this->requireAuthentication($isAuthenticated);
         $this->validateCsrf($post);
 
-        $mergeResult = $_SESSION['merge_result'] ?? null;
+        // Recupera el identificador del Excel guardado al ejecutar la unión.
+        $artifactId = $_SESSION['merge_result_artifact_id'] ?? null;
 
-        if (
-            !is_array($mergeResult)
-            || !isset($mergeResult['headers'], $mergeResult['records'])
-            || !is_array($mergeResult['headers'])
-            || $mergeResult['headers'] === []
-            || !is_array($mergeResult['records'])
-        ) {
+        if (!is_int($artifactId) || $artifactId <= 0) {
             http_response_code(404);
-            exit('No hay resultados de unión disponibles para exportar.');
+            exit(
+                'No hay un Excel de unión guardado disponible. '
+                . 'Ejecuta nuevamente la unión.'
+            );
         }
 
         try {
-            $content = $this->excelExportService->generate(
-                $mergeResult['headers'],
-                $mergeResult['records'],
-                [],
-                [],
-                true
-            );
+            // Lee el archivo registrado, sin crear otro artefacto.
+            $content = $this->fileArtifactService->readContent($artifactId);
         } catch (Throwable $exception) {
-            error_log($exception->__toString());
+            error_log(
+                '[Randomix][Error al descargar unión] '
+                . $exception->__toString()
+            );
+
             http_response_code(500);
-            exit('No fue posible generar el Excel C.');
+            exit('No fue posible recuperar el Excel de la unión.');
         }
 
-
-        if (!$this->saveGeneratedExcel($content, 'Excel_C_unificado.xlsx')) {
-            http_response_code(500);
-            exit('No fue posible guardar el Excel de la unión.');
-        }
-
+        // Descarga el mismo archivo generado durante la ejecución.
         $this->sendExcel($content, 'Excel_C_unificado.xlsx');
     }
 
+
+
     /**
-     * Exporta el resultado de la comparación entre Excel A y Excel B.
+     * Descarga el Excel de una comparación previamente ejecutada.
+     *
+     * Recupera el artefacto existente sin volver a generar ni guardar el archivo.
      */
     private function exportComparison(
         array $post,
         bool $isAuthenticated
     ): void {
+        // Verifica autenticación y protección CSRF.
         $this->requireAuthentication($isAuthenticated);
         $this->validateCsrf($post);
 
-        $comparisonResult = $_SESSION['comparison_result'] ?? null;
+        // Recupera el identificador del Excel guardado al ejecutar la comparación.
+        $artifactId = $_SESSION['comparison_result_artifact_id'] ?? null;
 
-        if (
-            !is_array($comparisonResult)
-            || !isset(
-            $comparisonResult['headers'],
-            $comparisonResult['records']
-        )
-            || !is_array($comparisonResult['headers'])
-            || $comparisonResult['headers'] === []
-            || !is_array($comparisonResult['records'])
-        ) {
+        if (!is_int($artifactId) || $artifactId <= 0) {
             http_response_code(404);
-            exit('No hay resultados de comparación disponibles para exportar.');
+            exit(
+                'No hay un Excel de comparación guardado disponible. '
+                . 'Ejecuta nuevamente la comparación.'
+            );
         }
 
         try {
-            $content = $this->excelExportService->generate(
-                $comparisonResult['headers'],
-                $comparisonResult['records']
-            );
+            // Lee el archivo registrado, sin crear otro artefacto.
+            $content = $this->fileArtifactService->readContent($artifactId);
         } catch (Throwable $exception) {
-            error_log($exception->__toString());
+            error_log(
+                '[Randomix][Error al descargar comparación] '
+                . $exception->__toString()
+            );
+
             http_response_code(500);
-            exit('No fue posible generar el Excel de la comparación.');
+            exit('No fue posible recuperar el Excel de la comparación.');
         }
 
-
-        if (!$this->saveGeneratedExcel($content, 'Actualizacion_Estudiantes.xlsx')) {
-            http_response_code(500);
-            exit('No fue posible guardar el Excel de la comparación.');
-        }
-
-        $this->sendExcel($content, 'Actualizacion_Estudiantes.xlsx');
-
+        // Descarga el contenido existente.
+        $this->sendExcel(
+            $content,
+            'Actualizacion_Estudiantes.xlsx'
+        );
     }
+
 
     /**
      * Exporta el grupo seleccionado en formato Excel.
      */
-    
+
     /**
      * Descarga el Excel generado y registrado al finalizar el sorteo.
      *
