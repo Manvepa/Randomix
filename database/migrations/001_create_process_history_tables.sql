@@ -167,3 +167,21 @@ CREATE TABLE excel_merge_runs (
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================================
+-- Randomix
+-- Agregar created_at a las tablas de historial
+-- Compatible con MariaDB 10.4.32
+-- ============================================================
+
+ALTER TABLE comparison_runs
+    ADD COLUMN created_at DATETIME NOT NULL
+    DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE selection_runs
+    ADD COLUMN created_at DATETIME NOT NULL
+    DEFAULT CURRENT_TIMESTAMP;
+
+ALTER TABLE excel_merge_runs
+    ADD COLUMN created_at DATETIME NOT NULL
+    DEFAULT CURRENT_TIMESTAMP;

@@ -227,4 +227,70 @@ final class FileArtifactService
             );
         }
     }
+
+
+    /**
+     * Recupera el contenido de un artefacto previamente registrado.
+     *
+     * Solo permite leer archivos ubicados directamente en storage/records.
+     */
+    public function readContent(int $artifactId): string
+    {
+        if ($artifactId <= 0) {
+            throw new RuntimeException(
+                'El identificador del archivo no es válido.'
+            );
+        }
+
+        // Busca la ruta del artefacto registrado.
+        $statement = $this->connection->prepare(
+            'SELECT relative_path
+             FROM file_artifacts
+             WHERE id = :id
+             LIMIT 1'
+        );
+
+        $statement->execute(['id' => $artifactId]);
+        $relativePath = $statement->fetchColumn();
+
+        if (!is_string($relativePath) || $relativePath === '') {
+            throw new RuntimeException(
+                'No se encontró el archivo solicitado.'
+            );
+        }
+
+        // Rechaza rutas que puedan salir del directorio de almacenamiento.
+        if (
+            basename($relativePath) !== $relativePath
+            || str_contains($relativePath, '..')
+            || str_contains($relativePath, '/')
+            || str_contains($relativePath, '\\')
+        ) {
+            throw new RuntimeException(
+                'La ruta del archivo registrado no es válida.'
+            );
+        }
+
+        $absolutePath = $this->recordsDirectory
+            . DIRECTORY_SEPARATOR
+            . $relativePath;
+
+        if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+            throw new RuntimeException(
+                'El archivo registrado no está disponible para lectura.'
+            );
+        }
+
+        // Devuelve el contenido binario sin modificarlo.
+        $content = file_get_contents($absolutePath);
+
+        if ($content === false || $content === '') {
+            throw new RuntimeException(
+                'No fue posible leer el archivo registrado.'
+            );
+        }
+
+        return $content;
+    }
+
 }

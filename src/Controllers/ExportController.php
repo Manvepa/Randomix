@@ -248,12 +248,20 @@ final class ExportController
     /**
      * Exporta el grupo seleccionado en formato Excel.
      */
+    
+    /**
+     * Descarga el Excel generado y registrado al finalizar el sorteo.
+     *
+     * No vuelve a generar ni guardar los archivos de selección.
+     */
     private function exportSelectionExcel(
         mixed $exportType,
         bool $isAuthenticated
     ): void {
+        // Verifica que el usuario tenga autorización para exportar.
         $this->requireAuthentication($isAuthenticated);
 
+        // Valida el tipo de archivo solicitado.
         if (
             !is_string($exportType)
             || !in_array(
@@ -266,6 +274,7 @@ final class ExportController
             exit('Tipo de exportación no válido.');
         }
 
+        // Recupera los resultados del sorteo almacenados en la sesión.
         $selectionResult = $_SESSION['selection_result'] ?? null;
 
         if (
@@ -276,90 +285,55 @@ final class ExportController
             exit('No hay resultados disponibles para exportar.');
         }
 
-        $selectedRecords = $selectionResult['selected'] ?? null;
-        $notSelectedRecords = $selectionResult['not_selected'] ?? null;
-        $alternateRecords = $selectionResult['alternates'] ?? null;
+        // Relaciona cada tipo de exportación con el artefacto registrado.
+        $artifactKeyByExportType = [
+            'selected' => 'selected_file_id',
+            'not_selected' => 'not_selected_file_id',
+            'alternates' => 'alternates_file_id',
+        ];
 
-        if (
-            !is_array($selectedRecords)
-            || !is_array($notSelectedRecords)
-            || !is_array($alternateRecords)
-        ) {
-            http_response_code(500);
-            exit('Los resultados de la selección no tienen una estructura válida.');
-        }
-
-        // Obtiene las columnas incluso cuando el grupo solicitado está vacío.
-        $allRecords = array_merge($selectedRecords, $notSelectedRecords);
-
-        if ($allRecords === [] || !is_array($allRecords[0])) {
-            http_response_code(500);
-            exit('No fue posible determinar los encabezados del Excel.');
-        }
-
-        $headers = array_keys($allRecords[0]);
-
-        $records = match ($exportType) {
-            'selected' => $selectedRecords,
-            'not_selected' => $notSelectedRecords,
-            'alternates' => $alternateRecords,
-        };
-
-        // Conserva el resaltado de coincidencias de apellidos.
-        $highlightedIndexes = $exportType === 'selected'
-            ? ($selectionResult['selected_matching_surname_indexes'] ?? [])
-            : [];
-
-        // Calcula los índices de suplentes dentro del grupo seleccionado.
-        $alternateIndexes = [];
-
-        if ($exportType === 'selected') {
-            $beneficiariesCount = count(
-                $selectionResult['beneficiaries'] ?? []
-            );
-
-            $alternatesCount = count(
-                $selectionResult['alternates'] ?? []
-            );
-
-            for (
-                $index = $beneficiariesCount;
-                $index < $beneficiariesCount + $alternatesCount;
-                $index++
-            ) {
-                $alternateIndexes[] = $index;
-            }
-        }
-
-        try {
-            $content = $this->excelExportService->generate(
-                $headers,
-                $records,
-                $highlightedIndexes,
-                $alternateIndexes
-            );
-        } catch (Throwable $exception) {
-            error_log($exception->__toString());
-            http_response_code(500);
-            exit('No fue posible generar el archivo Excel.');
-        }
-
-        $filename = match ($exportType) {
+        $filenameByExportType = [
             'selected' => 'estudiantes_seleccionados.xlsx',
             'not_selected' => 'estudiantes_no_seleccionados.xlsx',
             'alternates' => 'estudiantes_suplentes.xlsx',
-        };
+        ];
 
-        // Guarda el archivo antes de enviarlo al navegador.
+        $artifactIds = $selectionResult['artifact_ids'] ?? [];
+        $artifactKey = $artifactKeyByExportType[$exportType];
+        $artifactId = (int) ($artifactIds[$artifactKey] ?? 0);
+        $filename = $filenameByExportType[$exportType];
 
-        if (!$this->saveGeneratedExcel($content, $filename)) {
+        // Comprueba que el sorteo tenga registrado el archivo solicitado.
+        if ($artifactId <= 0) {
+            error_log(
+                'Randomix: falta el identificador del artefacto '
+                . 'para la exportación "' . $exportType . '".'
+            );
+
             http_response_code(500);
-            exit('No fue posible guardar el Excel de la selección.');
+            exit(
+                'No se encontró el archivo generado para este sorteo. '
+                . 'Ejecuta nuevamente el sorteo.'
+            );
         }
 
+        try {
+            // Lee el archivo existente desde storage/records.
+            $content = $this->fileArtifactService->readContent($artifactId);
+        } catch (Throwable $exception) {
+            error_log(
+                'Randomix: no fue posible recuperar el Excel del sorteo. '
+                . $exception->getMessage()
+            );
 
+            http_response_code(500);
+            exit('No fue posible recuperar el archivo generado.');
+        }
+
+        // Descarga el contenido existente sin crear otro archivo ni registro.
         $this->sendExcel($content, $filename);
     }
+
 
     /**
      * Genera la vista previa PDF del grupo de selección solicitado.

@@ -13,6 +13,9 @@ use Randomix\Controllers\TemporaryFileCleanupController;
 use Randomix\Controllers\UploadController;
 use Randomix\Services\ComparisonPersistenceService;
 use Randomix\Support\Database;
+use Randomix\Services\SelectionPersistenceService;
+use Randomix\Services\ExcelExportService;
+use Randomix\Services\FileArtifactService;
 
 final class ApplicationFactory
 {
@@ -62,9 +65,26 @@ final class ApplicationFactory
             $requiredHeaders
         );
 
+        // Obtiene una única conexión para compartirla entre los servicios.
+        $connection = Database::getConnection();
+
         // Prepara el servicio encargado de persistir las comparaciones.
         $comparisonPersistenceService = new ComparisonPersistenceService(
-            Database::getConnection()
+            $connection
+        );
+
+        // Prepara el servicio encargado de persistir las selecciones.
+        $selectionPersistenceService = new SelectionPersistenceService(
+            $connection
+        );
+
+        // Prepara el servicio encargado de generar los archivos Excel.
+        $excelExportService = new ExcelExportService();
+
+        // Prepara el almacenamiento definitivo con la conexión compartida.
+        $fileArtifactService = new FileArtifactService(
+            $projectRoot,
+            $connection
         );
 
         $postActionController = new PostActionController(
@@ -73,7 +93,10 @@ final class ApplicationFactory
             $selectionController,
             $excelComparisonController,
             $excelMergeController,
-            $comparisonPersistenceService
+            $comparisonPersistenceService,
+            $selectionPersistenceService,
+            $excelExportService,
+            $fileArtifactService
         );
 
         return [

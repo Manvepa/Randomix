@@ -7,7 +7,10 @@ namespace Randomix\Controllers;
 use RuntimeException;
 use Throwable;
 use Randomix\Services\ComparisonPersistenceService;
+use Randomix\Services\SelectionPersistenceService;
 use Randomix\Support\Database;
+use Randomix\Services\ExcelExportService;
+use Randomix\Services\FileArtifactService;
 
 final class PostActionController
 {
@@ -17,7 +20,10 @@ final class PostActionController
         private readonly SelectionController $selectionController,
         private readonly ExcelComparisonController $excelComparisonController,
         private readonly ExcelMergeController $excelMergeController,
-        private readonly ComparisonPersistenceService $comparisonPersistenceService
+        private readonly ComparisonPersistenceService $comparisonPersistenceService,
+        private readonly SelectionPersistenceService $selectionPersistenceService,
+        private readonly ExcelExportService $excelExportService,
+        private readonly FileArtifactService $fileArtifactService
     ) {
     }
 
@@ -644,7 +650,7 @@ final class PostActionController
                         exit;
                     }
 
-                    
+
                     // Registra únicamente metadatos técnicos de la persistencia.
                     // No escribe nombres, documentos, direcciones ni otros datos personales.
                     try {
@@ -816,14 +822,58 @@ final class PostActionController
                     ],
                 ];
             } else {
+
                 // Ejecuta el sorteo con las dos cantidades independientes.
-                $_SESSION['selection_result'] = $this->selectionController->handle(
+                $result = $this->selectionController->handle(
                     $uploadedExcel,
                     $sheetName,
                     (int) $beneficiaryInput,
                     (int) $alternateInput,
                     $sheetValidation
                 );
+
+                // Persiste los resultados únicamente si el sorteo fue exitoso.
+                if (($result['success'] ?? false) === true) {
+                    try {
+                        // Obtiene los IDs de los tres Excel generados.
+                        $artifactIds = $this->saveSelectionArtifacts($result);
+
+                        // Registra el historial asociado al Excel original.
+                        $runId = $this->selectionPersistenceService->persist([
+                            'source_file_id' => (int) $uploadedExcel['artifact_id'],
+                            'selected_file_id' => $artifactIds['selected_file_id'],
+                            'not_selected_file_id' => $artifactIds['not_selected_file_id'],
+                            'alternates_file_id' => $artifactIds['alternates_file_id'],
+                            'sheet_name' => $result['sheet_name'],
+                            'requested_beneficiaries' => (int) $beneficiaryInput,
+                            'requested_alternates' => (int) $alternateInput,
+                            'total_records' => $result['total_records'],
+                            'beneficiaries_count' => $result['beneficiaries_count'],
+                            'alternates_count' => $result['alternates_count'],
+                            'not_selected_count' => $result['not_selected_count'],
+                        ]);
+
+                        // Conserva los IDs para reutilizarlos en las descargas.
+                        $result['artifact_ids'] = $artifactIds;
+                        $result['selection_run_id'] = $runId;
+                    } catch (Throwable $exception) {
+                        error_log(
+                            'Randomix: no fue posible persistir el sorteo. '
+                            . $exception->__toString()
+                        );
+
+                        // No presenta un sorteo como completado si falló su persistencia.
+                        $result = [
+                            'success' => false,
+                            'errors' => [
+                                'El sorteo se realizó, pero no fue posible guardar su historial. Inténtalo nuevamente.',
+                            ],
+                        ];
+                    }
+                }
+
+                $_SESSION['selection_result'] = $result;
+
             }
         }
 
@@ -831,5 +881,107 @@ final class PostActionController
         header('Location: index.php?page=selection');
         exit;
     }
+
+
+    /**
+     * Genera y registra los tres archivos Excel de una selección.
+     *
+     * Devuelve los identificadores necesarios para guardar el historial.
+     *
+     * @return array{
+     *     selected_file_id: int,
+     *     not_selected_file_id: int,
+     *     alternates_file_id: int
+     * }
+     */
+    private function saveSelectionArtifacts(array $result): array
+    {
+        // Obtiene los grupos producidos por el sorteo.
+        $selectedRecords = $result['selected'];
+        $notSelectedRecords = $result['not_selected'];
+        $alternateRecords = $result['alternates'];
+
+        // Determina los encabezados, incluso si algún grupo está vacío.
+        $allRecords = array_merge(
+            $selectedRecords,
+            $notSelectedRecords,
+            $alternateRecords
+        );
+
+        if ($allRecords === [] || !is_array($allRecords[0])) {
+            throw new RuntimeException(
+                'No fue posible determinar los encabezados del sorteo.'
+            );
+        }
+
+        $headers = array_keys($allRecords[0]);
+
+        // Calcula los índices de suplentes dentro del grupo seleccionado.
+        $alternateIndexes = [];
+        $beneficiariesCount = count($result['beneficiaries']);
+        $alternatesCount = count($alternateRecords);
+
+        for (
+            $index = $beneficiariesCount;
+            $index < $beneficiariesCount + $alternatesCount;
+            $index++
+        ) {
+            $alternateIndexes[] = $index;
+        }
+
+        // Conserva los resaltados utilizados por la exportación actual.
+        $highlightedIndexes =
+            $result['selected_matching_surname_indexes'] ?? [];
+
+        // Genera los tres archivos en memoria con el formato existente.
+        $selectedContent = $this->excelExportService->generate(
+            $headers,
+            $selectedRecords,
+            $highlightedIndexes,
+            $alternateIndexes
+        );
+
+        $notSelectedContent = $this->excelExportService->generate(
+            $headers,
+            $notSelectedRecords
+        );
+
+        $alternatesContent = $this->excelExportService->generate(
+            $headers,
+            $alternateRecords
+        );
+
+        $mimeType =
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+        // Guarda los archivos y recoge sus identificadores de la base de datos.
+        $selectedArtifact = $this->fileArtifactService->save(
+            $selectedContent,
+            'estudiantes_seleccionados.xlsx',
+            'xlsx',
+            $mimeType
+        );
+
+        $notSelectedArtifact = $this->fileArtifactService->save(
+            $notSelectedContent,
+            'estudiantes_no_seleccionados.xlsx',
+            'xlsx',
+            $mimeType
+        );
+
+        $alternatesArtifact = $this->fileArtifactService->save(
+            $alternatesContent,
+            'estudiantes_suplentes.xlsx',
+            'xlsx',
+            $mimeType
+        );
+
+        return [
+            'selected_file_id' => $selectedArtifact['id'],
+            'not_selected_file_id' => $notSelectedArtifact['id'],
+            'alternates_file_id' => $alternatesArtifact['id'],
+        ];
+    }
+
 
 }
