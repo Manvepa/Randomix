@@ -2,10 +2,22 @@
 
 declare(strict_types=1);
 
-// Define el título de la página de acceso.
-$pageTitle = 'Acceso administrativo';
+// Determina si se muestra el formulario de registro o el de acceso.
+// Conserva el formulario de registro cuando se devuelve un error del POST.
+$registrationMode = ($_GET['mode'] ?? '') === 'register'
+    || (
+        ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+        && ($_POST['action'] ?? '') === 'register'
+    );
 
-// Genera el contenido del formulario antes de incluir el layout.
+// Define el título de la página según el formulario seleccionado.
+$pageTitle = $registrationMode ? 'Crear una cuenta' : 'Iniciar sesión';
+
+// Recupera el mensaje de registro exitoso una sola vez.
+$registrationSuccess = $_SESSION['registration_success'] ?? null;
+unset($_SESSION['registration_success']);
+
+// Genera el contenido de la vista antes de incluir el layout.
 ob_start();
 ?>
 
@@ -23,16 +35,27 @@ ob_start();
         <div class="login-heading">
             <span class="eyebrow">PLATAFORMA INSTITUCIONAL</span>
 
-            <h1>Bienvenido</h1>
+            <h1><?= $registrationMode ? 'Crear una cuenta' : 'Bienvenido' ?></h1>
 
             <p>
-                Ingresa con tu cuenta de administrador para
-                gestionar los procesos de selección de estudiantes.
+                <?= $registrationMode
+                    ? 'Completa los datos para crear tu cuenta de Randomix.'
+                    : 'Accede a tu cuenta para gestionar los procesos de selección de estudiantes.' ?>
             </p>
         </div>
 
+        <?php if (!$registrationMode && is_string($registrationSuccess)): ?>
+            <p class="form-notice" role="status">
+                <?= htmlspecialchars($registrationSuccess, ENT_QUOTES, 'UTF-8') ?>
+            </p>
+        <?php endif; ?>
+
         <form class="login-form" method="POST" action="index.php">
-            <input type="hidden" name="action" value="login">
+            <input
+                type="hidden"
+                name="action"
+                value="<?= $registrationMode ? 'register' : 'login' ?>"
+            >
 
             <!-- Token CSRF para proteger el envío del formulario. -->
             <input
@@ -54,7 +77,10 @@ ob_start();
                     name="username"
                     placeholder="Ingresa tu usuario"
                     autocomplete="username"
+                    minlength="1"
                     maxlength="50"
+                    pattern="[a-zA-Z0-9._-]+"
+                    title="Usa letras, números, puntos, guiones o guiones bajos."
                     required
                     autofocus
                 >
@@ -68,12 +94,33 @@ ob_start();
                     id="password"
                     name="password"
                     placeholder="Ingresa tu contraseña"
-                    autocomplete="current-password"
+                    autocomplete="<?= $registrationMode ? 'new-password' : 'current-password' ?>"
+                    <?php if ($registrationMode): ?>
+                        minlength="12"
+                        maxlength="4096"
+                    <?php endif; ?>
                     required
                 >
             </div>
 
-            <!-- Muestra los errores sin insertar texto sin escapar en HTML. -->
+            <?php if ($registrationMode): ?>
+                <div class="form-group">
+                    <label for="password_confirmation">Confirmar contraseña</label>
+
+                    <input
+                        type="password"
+                        id="password_confirmation"
+                        name="password_confirmation"
+                        placeholder="Repite tu contraseña"
+                        autocomplete="new-password"
+                        minlength="12"
+                        maxlength="4096"
+                        required
+                    >
+                </div>
+            <?php endif; ?>
+
+            <!-- Muestra errores sin insertar texto sin escapar en HTML. -->
             <?php if (isset($errorMessage) && $errorMessage !== null): ?>
                 <p class="form-notice" role="alert">
                     <?= htmlspecialchars(
@@ -85,10 +132,18 @@ ob_start();
             <?php endif; ?>
 
             <button class="button button-primary" type="submit">
-                Iniciar sesión
+                <?= $registrationMode ? 'Crear cuenta' : 'Iniciar sesión' ?>
                 <span aria-hidden="true">&rarr;</span>
             </button>
         </form>
+
+        <div class="login-heading">
+            <?php if ($registrationMode): ?>
+                <p>¿Ya tienes una cuenta? <a href="index.php">Inicia sesión</a>.</p>
+            <?php else: ?>
+                <p>¿No tienes una cuenta? <a href="index.php?mode=register">Crear una cuenta</a>.</p>
+            <?php endif; ?>
+        </div>
     </div>
 
     <footer class="login-footer">

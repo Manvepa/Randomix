@@ -58,6 +58,13 @@ $errorMessage = null;
 $action = $_POST['action'] ?? null;
 $page = $_GET['page'] ?? 'login';
 
+// Conserva el modo de registro cuando el formulario se envía por POST.
+$registrationMode = ($_GET['mode'] ?? '') === 'register'
+    || (
+        ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST'
+        && ($_POST['action'] ?? '') === 'register'
+    );
+
 // Comprueba si existe una sesión administrativa autenticada.
 $isAuthenticated = isset(
     $_SESSION['admin']['id'],

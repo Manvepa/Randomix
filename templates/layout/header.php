@@ -60,3 +60,4 @@ $adminUsername = $_SESSION['admin']['username'] ?? 'Administrador';
         </div>
     </div>
 </header>
+<br>

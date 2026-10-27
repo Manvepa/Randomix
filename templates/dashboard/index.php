@@ -99,7 +99,7 @@ ob_start();
             </div>
         </section>
     </div>
-    <br>
+   
 
 
     <!-- Acceso a la unión de dos archivos Excel. -->

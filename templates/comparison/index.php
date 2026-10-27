@@ -40,7 +40,7 @@ ob_start();
 ?>
 
 <!-- Facilita el regreso al dashboard principal. -->
-<br>
+
 <div class="page-actions">
     <a class="button button-primary" href="index.php?page=dashboard">
         ← Volver al dashboard

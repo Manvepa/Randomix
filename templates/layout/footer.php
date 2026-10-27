@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 ?>
-
+<br>
 <footer class="dashboard-footer">
     <div class="dashboard-footer__inner">
         <span>Randomix</span>
