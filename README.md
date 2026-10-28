@@ -1,107 +1,402 @@
 ﻿# Randomix
 
-Randomix es una aplicación web desarrollada en PHP para importar listados de estudiantes desde archivos Excel, realizar una selección aleatoria sin reemplazo y consultar o exportar los registros seleccionados y no seleccionados.
+## Habilitar las extensiones `gd` y `zip` de PHP
 
-El proyecto está orientado al uso institucional y se desarrolla en Windows con el entorno XAMPP existente. Los archivos de trabajo y los resultados se manejan temporalmente; antes de desplegar en producción se deben validar la configuración, la seguridad y las políticas institucionales de protección de datos.
+Randomix necesita que las extensiones `gd` y `zip` estén habilitadas para que ciertas funciones y dependencias de PHP funcionen correctamente.
 
-> **Estado actual:** están implementados la importación y validación de Excel, el procesamiento de registros, la selección aleatoria, la exportación a Excel de ambos grupos y la vista previa PDF en formato A3 horizontal.
+1. Abre el **Panel de control de XAMPP**.
+2. En la fila **Apache**, haz clic en **Config**.
+3. Selecciona **PHP (php.ini)**. Se abrirá el archivo de configuración de PHP en un editor de texto.
+4. Busca la línea que contiene `;extension=gd`. En algunas versiones puede aparecer como `;extension=gd` o `;extension=gd2`.
+5. Elimina únicamente el punto y coma (`;`) del comienzo para que quede así:
 
-## Tabla de contenido
+   ```ini
+   extension=gd
+   ```
 
-- [Objetivo](#objetivo)
-- [Funcionalidades](#funcionalidades)
-- [Reglas de importación y selección](#reglas-de-importación-y-selección)
-- [Encabezados requeridos](#encabezados-requeridos)
-- [Tecnologías y dependencias](#tecnologías-y-dependencias)
-- [Requisitos previos](#requisitos-previos)
-- [Instalación local con XAMPP](#instalación-local-con-xampp)
-- [Uso de la aplicación](#uso-de-la-aplicación)
-- [Exportaciones](#exportaciones)
-- [Estructura del proyecto](#estructura-del-proyecto)
-- [Pruebas y validaciones](#pruebas-y-validaciones)
-- [Seguridad y protección de datos](#seguridad-y-protección-de-datos)
-- [Solución de problemas](#solución-de-problemas)
-- [Estado y siguientes pasos](#estado-y-siguientes-pasos)
-- [Licencia y uso](#licencia-y-uso)
+6. Busca la línea `;extension=zip` y elimina también el punto y coma del comienzo para que quede así:
 
-## Objetivo
+   ```ini
+   extension=zip
+   ```
 
-Facilitar la selección aleatoria de estudiantes a partir de una hoja de cálculo institucional, conservando los encabezados y el orden de las columnas originales. La aplicación separa los registros en dos grupos:
+7. Guarda el archivo `php.ini` y cierra el editor.
+8. Vuelve al Panel de control de XAMPP y reinicia Apache: haz clic en **Stop** y después en **Start**.
 
-- **Seleccionados:** registros elegidos aleatoriamente.
-- **No seleccionados:** registros que no fueron elegidos.
+**Importante:** si no encuentras alguna de esas líneas, no agregues varias versiones de la misma extensión. Revisa primero el archivo `php.ini` que abre XAMPP desde **Apache → Config → PHP (php.ini)**. En versiones actuales de PHP, normalmente se usan `extension=gd` y `extension=zip`.
 
-La selección se realiza sin reemplazo: en una ejecución, un mismo registro no se asigna a ambos grupos.
+### Comprobar que las extensiones quedaron habilitadas
 
-## Funcionalidades
+Abre una terminal de Windows (CMD) y ejecuta:
 
-### Acceso y panel administrativo
+```bat
+C:\xampp\php\php.exe -m | findstr /I "^(gd|zip)$"
+```
 
-- Pantalla de acceso y panel principal.
-- Gestión de sesión y cierre de sesión.
-- Protección CSRF para operaciones protegidas por formularios.
-- Interfaz compartida y estilos adaptables.
+Si ambas extensiones están habilitadas en ese PHP, deberían aparecer las líneas `gd` y `zip`.
 
-### Importación y procesamiento de Excel
+Si el comando no muestra una extensión, comprueba que editaste el `php.ini` correcto y que la ruta de PHP coincide con tu instalación. Para ver qué archivo de configuración usa PHP por consola, ejecuta:
 
-- Admite archivos `.xls` y `.xlsx`.
-- Permite seleccionar la hoja que se procesará.
-- Valida los encabezados y la estructura del archivo.
-- Aplica las restricciones de carga configuradas por la aplicación.
-- Guarda los archivos de trabajo en `storage/temporary/`, fuera del directorio público.
-- Detecta archivos duplicados mediante SHA-256.
-- Ignora las filas completamente vacías y conserva las parcialmente diligenciadas.
-- Conserva filas duplicadas como registros independientes.
-- Limita el procesamiento a 20.000 registros no vacíos.
+```bat
+C:\xampp\php\php.exe --ini
+```
 
-### Selección y resultados
 
-- Selecciona aleatoriamente la cantidad solicitada, sin reemplazo.
-- Muestra el total procesado y los totales de seleccionados y no seleccionados.
-- Presenta ambos grupos en el panel con los encabezados originales.
-- Permite solicitar cero seleccionados, siempre que se cumplan las demás validaciones.
 
-### Exportación de resultados
+Randomix es una aplicación web institucional que permite trabajar con
+listados de estudiantes en Excel, realizar procesos de selección
+aleatoria, comparar archivos, unir archivos Excel y consultar o
+descargar resultados.
 
-- Genera un archivo Excel para los seleccionados.
-- Genera un archivo Excel para los no seleccionados.
-- Permite visualizar los seleccionados en PDF.
-- Permite visualizar los no seleccionados en PDF.
-- Los PDF usan formato A3 horizontal y se abren en una nueva pestaña.
+Esta guía está escrita para personas que no tienen experiencia en
+programación. Sigue los pasos en orden. No necesitas Docker: el entorno
+de desarrollo previsto utiliza Windows y XAMPP.
 
-## Reglas de importación y selección
+> **Importante:** esta guía explica cómo preparar el entorno local. Los
+> valores concretos de la base de datos, la creación del usuario
+> administrador y cualquier migración deben verificarse en los archivos
+> actuales del proyecto. No inventes credenciales ni ejecutes scripts de
+> base de datos sin revisar su contenido.
 
-| Regla | Comportamiento |
-|---|---|
-| Formatos admitidos | `.xls` y `.xlsx` |
-| Tamaño máximo | 20 MB por archivo |
-| Máximo de registros | 20.000 registros no vacíos |
-| Encabezados | Deben coincidir con los requeridos por el proyecto |
-| Columnas adicionales | Se rechazan cuando incumplen la validación estricta configurada |
-| Filas completamente vacías | Se ignoran |
-| Filas parcialmente diligenciadas | Se conservan |
-| Filas duplicadas | Se conservan como registros independientes |
-| Selección | Aleatoria y sin reemplazo |
-| Cantidad solicitada | No puede ser negativa ni superar el total disponible |
-| Exportación Excel | Un archivo por cada grupo |
-| Vista previa PDF | Un documento por grupo, en A3 horizontal |
-| Retención temporal | 15 minutos, según la configuración del proyecto |
+## 1. Antes de comenzar: qué necesitas
 
-Los límites y las reglas pueden variar si se modifica la configuración. Verifica el código vigente antes de cambiar los valores documentados.
+Instala o confirma que tienes estos programas:
 
-## Encabezados requeridos
+1.  **Windows**: sistema operativo del equipo.
+2.  **XAMPP**: proporciona Apache, PHP y MariaDB/MySQL para ejecutar la
+    aplicación localmente.
+3.  **Composer**: instala las bibliotecas PHP que necesita Randomix.
+4.  **Git**: permite descargar el código desde GitHub y actualizarlo.
 
-El archivo de entrada debe contener estos 20 encabezados, respetando sus nombres:
+No necesitas instalar Docker.
 
-1. `ESTADO_ALUMNO`
-2. `DANE`
-3. `INSTITUCION`
-4. `SEDE`
-5. `GRADO`
-6. `JORNADA`
-7. `tipo_doc`
-8. `doc`
-9. `apellido_1`
+### ¿Qué es XAMPP?
+
+XAMPP es un conjunto de herramientas que permite ejecutar una aplicación
+web en tu propio computador. En esta guía se supone que XAMPP está
+instalado en:
+
+``` text
+C:\xampp
+```
+
+Y que los proyectos web se guardan en:
+
+``` text
+C:\xampp\htdocs
+```
+
+Si XAMPP está instalado en otra ubicación, tendrás que adaptar las rutas
+de los comandos.
+
+### Verificar que los programas estén instalados
+
+Abre **PowerShell**:
+
+1.  Pulsa la tecla Windows.
+2.  Escribe `PowerShell`.
+3.  Abre Windows PowerShell o Terminal.
+4.  Copia y ejecuta cada comando por separado.
+
+Comprueba PHP de XAMPP:
+
+``` powershell
+C:\xampp\php\php.exe -v
+```
+
+Comprueba Composer:
+
+``` powershell
+composer --version
+```
+
+Comprueba Git:
+
+``` powershell
+git --version
+```
+
+Si un comando indica que no se reconoce o que el archivo no existe,
+instala el programa que falta o revisa su ubicación antes de continuar.
+
+## 2. Descargar Randomix
+
+### Opción A: descargar el código con Git
+
+Esta es la opción recomendada si ya tienes Git instalado.
+
+En PowerShell, ejecuta:
+
+``` powershell
+Set-Location "C:\xampp\htdocs"
+git clone https://github.com/Manvepa/Randomix.git
+Set-Location "C:\xampp\htdocs\Randomix"
+```
+
+El primer comando entra en la carpeta donde XAMPP guarda los proyectos.
+El segundo descarga Randomix desde GitHub. El tercero entra en la
+carpeta del proyecto.
+
+Si Windows indica que la carpeta `Randomix` ya existe, **no vuelvas a
+clonar el repositorio encima**. Entra en la carpeta existente:
+
+``` powershell
+Set-Location "C:\xampp\htdocs\Randomix"
+```
+
+### Opción B: ya tienes el proyecto descargado
+
+Si la carpeta ya existe, abre PowerShell y ejecuta:
+
+``` powershell
+Set-Location "C:\xampp\htdocs\Randomix"
+```
+
+Todos los comandos siguientes se deben ejecutar desde la carpeta
+`C:\xampp\htdocs\Randomix`, salvo que se indique otra ruta.
+
+## 3. Iniciar los servicios de XAMPP
+
+1.  Abre **XAMPP Control Panel** desde el menú Inicio de Windows.
+2.  Busca la fila **Apache** y pulsa **Start**.
+3.  Busca la fila **MySQL** y pulsa **Start** si Randomix utiliza la
+    base de datos configurada en tu instalación.
+4.  Espera a que los servicios aparezcan como iniciados.
+
+Para comprobar Apache, abre el navegador y visita:
+
+``` text
+http://localhost/
+```
+
+Si se muestra la página inicial de XAMPP, Apache está respondiendo.
+
+Si Apache o MySQL no inicia, no continúes todavía. Revisa el mensaje que
+aparece en XAMPP Control Panel; puede existir un conflicto de puertos o
+una configuración pendiente.
+
+## 4. Instalar las dependencias de Randomix
+
+Las dependencias son bibliotecas de terceros que Randomix utiliza para
+leer Excel, generar archivos y ejecutar otras funciones. Composer las
+instala por ti.
+
+En PowerShell, confirma que estás en la carpeta del proyecto:
+
+``` powershell
+Set-Location "C:\xampp\htdocs\Randomix"
+```
+
+Después ejecuta:
+
+``` powershell
+composer install
+```
+
+Espera a que termine. Este comando lee `composer.json` y `composer.lock`
+e instala las versiones previstas por el proyecto. También genera el
+autoloader que PHP utiliza para encontrar las clases.
+
+Cuando termine, comprueba que existe este archivo:
+
+``` text
+C:\xampp\htdocs\Randomix\vendor\autoload.php
+```
+
+Si `composer install` termina con un error relacionado con la versión de
+PHP, revisa la versión que utiliza Composer:
+
+``` powershell
+php -v
+```
+
+Compárala con la versión de PHP de XAMPP:
+
+``` powershell
+C:\xampp\php\php.exe -v
+```
+
+Si son diferentes, Composer podría estar utilizando otra instalación de
+PHP. Corrige esa configuración antes de continuar; no cambies versiones
+de dependencias al azar.
+
+## 5. Preparar la configuración local
+
+Randomix puede necesitar parámetros de configuración para conectarse a
+la base de datos y establecer opciones del entorno.
+
+1.  En la carpeta del proyecto, busca el archivo `.env.example`.
+2.  Revisa también los archivos de configuración, especialmente
+    `config/` y cualquier documentación dentro de `database/`.
+3.  Confirma qué variables lee realmente el código antes de crear o
+    modificar archivos de configuración.
+4.  Si el proyecto usa `.env`, crea una copia local de `.env.example`
+    con el nombre `.env` y completa únicamente las variables que el
+    proyecto requiere.
+
+Puedes abrir los archivos con Visual Studio Code, Bloc de notas u otro
+editor de texto.
+
+**No copies valores de ejemplo sin comprobarlos.** El nombre de la base
+de datos, el usuario, la contraseña y la URL dependen de la
+configuración de tu instalación.
+
+No publiques el archivo `.env` ni compartas contraseñas. Debe permanecer
+fuera del control de versiones.
+
+## 6. Preparar la base de datos
+
+Randomix utiliza MariaDB/MySQL para guardar información administrativa y
+el historial de operaciones cuando así lo establece la configuración
+activa.
+
+### 6.1 Iniciar MySQL en XAMPP
+
+En XAMPP Control Panel, confirma que **MySQL** esté iniciado.
+
+### 6.2 Identificar el esquema correcto
+
+Antes de crear una base de datos o tablas:
+
+1.  Revisa la configuración de conexión de Randomix.
+2.  Busca en el proyecto los archivos SQL de migración o inicialización.
+3.  Lee el contenido de los archivos antes de ejecutarlos.
+4.  Confirma si el proyecto requiere crear la base de datos, ejecutar
+    una migración y crear un usuario administrador.
+
+No ejecutes un SQL antiguo ni elimines tablas existentes para intentar
+solucionar un error. Una migración puede modificar o borrar información.
+
+### 6.3 Crear o inicializar la base de datos
+
+Utiliza el procedimiento y el esquema que correspondan a la versión
+actual del proyecto. Configura los mismos datos de conexión en los
+archivos de configuración de Randomix.
+
+**Esta guía no proporciona un nombre de base de datos, contraseña de
+administrador ni comando de migración universal**, porque esos valores
+deben coincidir con los archivos reales del proyecto. Si no encuentras
+el procedimiento de inicialización, solicita al responsable técnico que
+confirme los pasos antes de continuar.
+
+## 7. Crear o confirmar el acceso administrativo
+
+Para ingresar a Randomix necesitas una cuenta administrativa válida para
+la instalación.
+
+-   Si la base de datos ya contiene una cuenta válida, utiliza las
+    credenciales entregadas por el responsable del sistema.
+-   Si existe un script o comando para crear el administrador, revisa
+    sus instrucciones y ejecútalo únicamente según el procedimiento
+    oficial del proyecto.
+-   No supongas una contraseña por defecto ni compartas credenciales en
+    el repositorio.
+
+Si no existe una cuenta y no encuentras instrucciones para crearla,
+detente y consulta el procedimiento de inicialización vigente. No
+insertes contraseñas directamente en la base de datos.
+
+## 8. Abrir Randomix en el navegador
+
+Con las dependencias instaladas, la configuración preparada y los
+servicios necesarios iniciados:
+
+1.  Abre el navegador.
+2.  Visita la dirección local:
+
+``` text
+http://localhost/Randomix/public/
+```
+
+3.  Inicia sesión con una cuenta administrativa válida.
+
+Si la aplicación utiliza una configuración de Apache diferente, la
+dirección puede cambiar. El punto de entrada web del proyecto es
+`public/index.php`.
+
+Si aparece una página en blanco o un error, consulta la sección
+[Solución de problemas](#solución-de-problemas).
+
+## 9. Cómo utilizar Randomix
+
+### Proceso de selección
+
+1.  Entra a la sección **Proceso de selección**.
+2.  Carga el archivo Excel con extensión `.xls` o `.xlsx`.
+3.  Selecciona la hoja que contiene el listado de estudiantes.
+4.  Ejecuta la validación.
+5.  Comprueba que los encabezados sean correctos.
+6.  Indica cuántos estudiantes deseas seleccionar.
+7.  Ejecuta la selección aleatoria.
+8.  Revisa los registros seleccionados y no seleccionados.
+9.  Descarga los resultados en Excel o abre las vistas previas PDF
+    disponibles.
+
+La selección es aleatoria y sin reemplazo: un registro no puede quedar
+simultáneamente en ambos grupos en la misma ejecución.
+
+### Verificación de estudiantes ganadores
+
+1.  Entra a la sección de comparación o verificación.
+2.  Carga los archivos solicitados por la pantalla.
+3.  Selecciona la hoja correspondiente en cada archivo.
+4.  Sigue las instrucciones de la interfaz para ejecutar la comparación.
+5.  Revisa y descarga el resultado disponible.
+
+Las reglas de comparación son las definidas por la versión instalada.
+
+### Unión de archivos Excel
+
+1.  Entra a **Unión de archivos Excel**.
+2.  Carga los dos archivos solicitados.
+3.  Selecciona la hoja correspondiente en cada uno.
+4.  Ejecuta la unión.
+5.  Revisa el resultado y descarga el archivo generado.
+
+No modifiques los encabezados para hacer que un archivo pase la
+validación sin confirmar primero las reglas del proyecto.
+
+### Panel administrativo
+
+El panel administrativo presenta estadísticas e historial de
+operaciones. La actividad reciente muestra hasta 10 operaciones y el
+historial completo permite consultar los registros por páginas.
+
+Los enlaces de descarga dependen de que el archivo generado continúe
+disponible y de que la cuenta tenga autorización para acceder a él.
+
+## 10. Reglas de los archivos Excel
+
+La configuración documentada del proyecto contempla:
+
+  Regla                              Comportamiento
+  ---------------------------------- --------------------------------------------
+  Formatos admitidos                 `.xls` y `.xlsx`
+  Tamaño máximo documentado          20 MB por archivo
+  Máximo de registros documentado    20.000 registros no vacíos
+  Filas completamente vacías         Se ignoran
+  Filas parcialmente diligenciadas   Se conservan
+  Filas duplicadas                   Se conservan como registros independientes
+  Archivos temporales                Retención configurada de 15 minutos
+  Selección                          Aleatoria y sin reemplazo
+
+Los límites efectivos dependen de la configuración de la versión
+instalada. No proceses datos reales hasta confirmar que el archivo y sus
+encabezados cumplen las reglas de la aplicación.
+
+### Encabezados requeridos para el proceso de selección
+
+El listado de selección documentado utiliza estos 20 encabezados:
+
+1.  `ESTADO_ALUMNO`
+2.  `DANE`
+3.  `INSTITUCION`
+4.  `SEDE`
+5.  `GRADO`
+6.  `JORNADA`
+7.  `tipo_doc`
+8.  `doc`
+9.  `apellido_1`
 10. `apellido_2`
 11. `nombre_1`
 12. `nombre_2`
@@ -114,302 +409,146 @@ El archivo de entrada debe contener estos 20 encabezados, respetando sus nombres
 19. `ACUDIENTE Doc`
 20. `ACUDIENTES`
 
-Antes de procesar un archivo real, confirma que los encabezados coincidan con los que valida la versión instalada. No renombres columnas sin actualizar también su validador.
+Respeta los nombres de los encabezados. Antes de usar un Excel
+institucional, confirma que coincidan con los validadores de la versión
+instalada.
 
-## Tecnologías y dependencias
-
-| Tecnología o paquete | Uso |
-|---|---|
-| PHP 8.2 o compatible con `composer.json` | Lógica del servidor y procesamiento de solicitudes |
-| Apache mediante XAMPP | Servidor web local |
-| MariaDB/MySQL | Datos administrativos, si así lo requiere la configuración activa |
-| PDO | Acceso a base de datos |
-| Composer | Dependencias y autoloading |
-| `vlucas/phpdotenv` | Lectura de variables de entorno |
-| PhpSpreadsheet | Lectura y generación de Excel |
-| `tecnickcom/tc-lib-pdf` | Generación de PDF |
-| HTML, CSS y JavaScript | Interfaz de usuario |
-
-Las versiones exactas están determinadas por `composer.lock` y por el PHP que se ejecute en el equipo.
-
-## Requisitos previos
-
-- Windows con XAMPP instalado.
-- Apache iniciado desde XAMPP.
-- MySQL/MariaDB iniciado si la configuración activa necesita la base de datos.
-- PHP compatible con las dependencias de Composer.
-- Composer.
-- Git, si se va a clonar el repositorio.
-
-Ruta de desarrollo utilizada:
-
-```text
-C:\xampp\htdocs\Randomix
-```
-
-**El entorno local documentado usa el XAMPP existente; no requiere Docker.**
-
-## Instalación local con XAMPP
-
-### 1. Obtener el repositorio
-
-Si todavía no tienes el repositorio:
-
-```powershell
-Set-Location "C:\xampp\htdocs"
-git clone https://github.com/Manvepa/Randomix.git
-Set-Location "C:\xampp\htdocs\Randomix"
-```
-
-Si ya está clonado, entra a la carpeta existente:
-
-```powershell
-Set-Location "C:\xampp\htdocs\Randomix"
-```
-
-### 2. Iniciar XAMPP
-
-Abre XAMPP Control Panel e inicia Apache. Inicia MySQL si la configuración de Randomix utiliza la base de datos.
-
-### 3. Instalar dependencias
-
-Desde la raíz del proyecto:
-
-```powershell
-composer install
-```
-
-Para comprobar la versión de PHP de XAMPP:
-
-```powershell
-C:\xampp\php\php.exe -v
-```
-
-Si Composer está asociado a otra versión de PHP y necesitas ejecutar la instalación con PHP de XAMPP, utiliza la ruta real de `composer.phar` en tu equipo:
-
-```powershell
-& "C:\xampp\php\php.exe" "RUTA\REAL\composer.phar" install
-```
-
-Sustituye `RUTA\REAL\composer.phar` por la ruta correcta. `composer install` utiliza las versiones fijadas en `composer.lock` y genera el autoloader.
-
-### 4. Configurar el entorno
-
-Revisa `.env.example` y los archivos de configuración para confirmar qué variables consume la versión actual. Si la aplicación usa `.env`, crea el archivo local a partir del ejemplo y completa los valores correctos para tu instalación.
-
-Ejemplo orientativo —conserva únicamente las variables realmente utilizadas por el código—:
-
-```dotenv
-APP_ENV=local
-APP_DEBUG=true
-APP_URL=http://localhost/Randomix
-
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=randomix
-DB_USERNAME=root
-DB_PASSWORD=
-```
-
-Los valores de base de datos son ilustrativos; pueden diferir de tu instalación. No subas `.env` a Git ni compartas credenciales.
-
-### 5. Preparar la base de datos, si aplica
-
-Antes de crear tablas, revisa `config/database.php`, el directorio `database/` y cualquier mecanismo de inicialización o migración existente. Si la aplicación requiere una base de datos para las cuentas administrativas, crea la base de datos con el nombre configurado y utiliza el esquema que corresponda al código actual.
-
-No crees tablas manualmente a partir de ejemplos antiguos sin verificar primero el esquema vigente. Las contraseñas deben almacenarse mediante hashes seguros, nunca en texto plano.
-
-### 6. Abrir la aplicación
-
-Con Apache activo, la URL local puede ser:
-
-```text
-http://localhost/Randomix/public/
-```
-
-La dirección exacta depende de la configuración de Apache y del punto de entrada. Si se utiliza un host virtual o se publica `public/` como raíz del sitio, utiliza la URL correspondiente.
-
-## Uso de la aplicación
-
-1. Abre Randomix en el navegador e inicia sesión con una cuenta administrativa válida para tu instalación.
-2. Carga un archivo `.xls` o `.xlsx` dentro de los límites permitidos.
-3. Selecciona la hoja que contiene el listado.
-4. Ejecuta la validación y confirma que los encabezados sean correctos.
-5. Indica la cantidad de estudiantes que deseas seleccionar.
-6. Ejecuta la selección aleatoria.
-7. Revisa el total procesado y las tablas de seleccionados y no seleccionados.
-8. Utiliza los enlaces correspondientes para exportar a Excel o visualizar el PDF.
-
-La selección produce ambos grupos en una misma ejecución. Utiliza los resultados ya generados para exportar a distintos formatos, mientras sigan disponibles en la sesión; no vuelvas a seleccionar solo para cambiar el formato de salida.
-
-## Exportaciones
+## 11. Archivos de resultados
 
 ### Excel
 
-Se generan archivos `.xlsx` separados para seleccionados y no seleccionados. La exportación conserva el orden de los encabezados originales y aplica formato a la fila de encabezados. El servicio contempla valores que podrían interpretarse como fórmulas y campos que deben conservarse como texto, como códigos con ceros iniciales.
+La aplicación puede generar archivos `.xlsx` separados para los grupos
+de seleccionados y no seleccionados. Los resultados conservan el orden
+de los encabezados originales.
 
 ### PDF
 
-Los enlaces generan una vista previa en el navegador mediante una respuesta `Content-Disposition: inline`. Hay un PDF para cada grupo.
+La vista previa PDF disponible utiliza formato A3 horizontal. Se abre en
+el navegador y está pensada para consultar o imprimir los resultados. No
+asumas que el PDF se guarda como archivo permanente: el comportamiento
+depende del servicio de exportación configurado.
 
-Características de la vista previa:
+Los resultados y archivos temporales pueden expirar. Descarga y guarda
+los documentos que debas conservar en la ubicación institucional
+autorizada.
 
-- Formato A3 horizontal.
-- Tabla con bordes.
-- Encabezados repetidos en las páginas nuevas.
-- Altura de fila calculada según la longitud del texto.
-- Evita comenzar una fila si no cabe completa en el espacio disponible de la página.
-- El contenido se genera para responder al navegador y no se guarda como una exportación permanente en el directorio público.
+## 12. Solución de problemas frecuentes
 
-La exportación Excel y la vista previa PDF son funciones separadas.
+### XAMPP no inicia Apache
 
-## Estructura del proyecto
+-   Confirma que estás usando la instalación correcta de XAMPP.
+-   Lee el mensaje de error del panel.
+-   Comprueba si otro programa está utilizando el puerto requerido.
+-   No cambies puertos sin revisar la configuración de Apache.
 
-La siguiente estructura es orientativa. Confirma los nombres y directorios exactos en el repositorio actual, ya que pueden evolucionar durante el desarrollo.
+### Randomix no abre
 
-```text
-Randomix/
-├── config/                  # Configuración de aplicación, base de datos e importación
-├── database/                # Migraciones o recursos de base de datos, si existen
-├── public/
-│   ├── assets/              # CSS, imágenes y recursos públicos
-│   └── index.php            # Punto de entrada web
-├── src/
-│   ├── Controllers/         # Coordinación de solicitudes y respuestas
-│   ├── Import/              # Lectura y procesamiento de Excel
-│   ├── Repositories/        # Acceso a datos, si aplica
-│   ├── Security/            # Sesiones y protección
-│   ├── Services/            # Lógica de negocio y exportaciones
-│   ├── Support/             # Utilidades compartidas
-│   └── Validators/          # Validación de archivos y datos
-├── storage/
-│   ├── logs/                # Registros, si están habilitados
-│   └── temporary/           # Archivos temporales de trabajo
-├── templates/
-│   ├── auth/                # Vistas de acceso
-│   ├── layout/              # Plantilla compartida
-│   └── selection/           # Vista de carga y resultados
-├── tests/                   # Pruebas y scripts de validación
-├── .env.example             # Ejemplo de configuración
-├── .gitignore
-├── composer.json
-├── composer.lock
-└── README.md
+-   Comprueba que Apache esté iniciado.
+-   Confirma que estás utilizando la URL correcta.
+-   Verifica que exista `public/index.php`.
+-   Comprueba que Composer haya instalado las dependencias y que exista
+    `vendor/autoload.php`.
+-   Revisa los registros de error de Apache y PHP.
+
+### Error al conectar con la base de datos
+
+-   Comprueba que MySQL esté iniciado.
+-   Verifica el nombre de la base de datos, el usuario, la contraseña y
+    el puerto configurados.
+-   Confirma que la base de datos y las tablas requeridas hayan sido
+    inicializadas.
+-   No asumas que el usuario `root` tiene una contraseña vacía.
+
+### Composer muestra errores
+
+-   Ejecuta los comandos desde la carpeta del proyecto.
+-   Comprueba la versión de PHP que utilizan Composer y XAMPP.
+-   Lee el mensaje completo antes de cambiar dependencias.
+-   No borres `composer.lock` para intentar resolver el problema.
+
+### El archivo Excel no se puede cargar
+
+-   Comprueba que tenga extensión `.xls` o `.xlsx`.
+-   Verifica el tamaño máximo permitido.
+-   Asegúrate de seleccionar la hoja correcta.
+-   Comprueba que los encabezados sean los requeridos.
+-   Vuelve a cargar el archivo si el temporal ha vencido.
+
+### No puedo descargar un resultado
+
+-   Confirma que has iniciado sesión con una cuenta autorizada.
+-   Comprueba que la operación haya generado el archivo.
+-   Si el archivo temporal expiró, puede ser necesario repetir el
+    proceso según las reglas de la aplicación.
+
+### La página aparece en blanco
+
+-   No repitas operaciones con datos reales sin saber si la primera
+    solicitud se ejecutó.
+-   Revisa los registros de error de PHP y Apache.
+-   Si eres responsable del código, valida la sintaxis del archivo PHP
+    modificado con el ejecutable de XAMPP. Por ejemplo:
+
+``` powershell
+C:\xampp\php\php.exe -l .\src\Controllers\PageController.php
 ```
 
-El autoload PSR-4 está definido en `composer.json`. La estructura real del código es la referencia definitiva.
+## 13. Seguridad y protección de datos
 
-## Pruebas y validaciones
+Los archivos pueden contener información personal de estudiantes. Antes
+de utilizar datos reales:
 
-Ejecuta los comandos desde `C:\xampp\htdocs\Randomix`. Los ejemplos utilizan explícitamente el PHP de XAMPP para evitar confusiones con otra versión instalada en Windows.
+-   No subas listados de estudiantes ni archivos exportados al
+    repositorio.
+-   No publiques el archivo `.env`, contraseñas ni credenciales.
+-   Mantén los archivos temporales fuera del directorio público.
+-   Utiliza cuentas con los permisos mínimos necesarios.
+-   No compartas credenciales administrativas.
+-   Utiliza únicamente archivos institucionales autorizados.
+-   Confirma que los archivos temporales se eliminen según la política
+    definida.
+-   Para producción, configura HTTPS, permisos adecuados y depuración
+    desactivada.
+-   Cumple las políticas institucionales de protección de datos
+    personales.
 
-### Comprobar sintaxis PHP
+El almacenamiento temporal no garantiza por sí solo que no existan
+copias en otros lugares. El despliegue debe respetar las políticas de
+tratamiento de datos de la organización.
 
-```powershell
-C:\xampp\php\php.exe -l .\public\index.php
-C:\xampp\php\php.exe -l .\src\Services\PdfPreviewService.php
-C:\xampp\php\php.exe -l .\src\Services\ExcelExportService.php
-C:\xampp\php\php.exe -l .\templates\selection\index.php
-```
+## 14. Información técnica para mantenimiento
 
-Si un archivo cambió de ubicación o nombre, ajusta el comando al archivo existente.
+El proyecto utiliza PHP, Composer, XAMPP, MariaDB/MySQL cuando está
+configurado, PhpSpreadsheet y componentes de exportación PDF.
 
-### Comprobar la disponibilidad de tc-lib-pdf
+La estructura principal incluye:
 
-```powershell
-C:\xampp\php\php.exe -r "require 'vendor/autoload.php'; echo class_exists('\\Com\\Tecnick\\Pdf\\Tcpdf') ? 'OK: tc-lib-pdf disponible' : 'ERROR: clase no encontrada';"
-```
+-   `public/`: punto de entrada web y recursos públicos.
+-   `src/Controllers/`: coordinación de solicitudes.
+-   `src/Import/`: lectura y procesamiento de Excel.
+-   `src/Services/`: lógica de negocio, historial y exportaciones.
+-   `src/Validators/`: validaciones.
+-   `templates/`: vistas de la aplicación.
+-   `storage/temporary/`: archivos temporales.
+-   `tests/`: pruebas y scripts de validación.
+-   `vendor/`: dependencias instaladas por Composer.
 
-La integración local utiliza fuentes generadas en:
+Los nombres y directorios exactos pueden evolucionar. El repositorio y
+el código actual son la referencia definitiva.
 
-```text
-vendor/tecnickcom/tc-lib-pdf-font/target/fonts
-```
+## 15. Estado del proyecto
 
-Si la carpeta no existe después de instalar dependencias, consulta las instrucciones de construcción de fuentes del paquete `tecnickcom/tc-lib-pdf-font`. No repitas ese proceso si las fuentes ya están disponibles.
+Entre las funciones desarrolladas se encuentran la importación y
+validación de Excel, selección aleatoria, comparación, unión de
+archivos, exportaciones, panel administrativo e historial de
+operaciones.
 
-### Casos funcionales recomendados
-
-- Archivo Excel válido y selección de hoja.
-- Encabezados faltantes, adicionales o duplicados.
-- Archivo sin registros válidos.
-- Filas vacías y parcialmente diligenciadas.
-- Cantidad seleccionada igual a cero.
-- Cantidad solicitada superior al total disponible.
-- Exportación Excel de ambos grupos.
-- Vista previa PDF de ambos grupos, incluidos textos largos y documentos de varias páginas.
-- Acceso a las rutas de exportación sin sesión válida.
-- Expiración y limpieza de archivos temporales.
-
-El directorio `tests/` contiene pruebas y scripts específicos. Revisa el propósito de cada archivo antes de ejecutarlo; una prueba aislada no sustituye una prueba de integración del flujo completo.
-
-## Seguridad y protección de datos
-
-Los archivos pueden contener datos personales de estudiantes. Antes de utilizar datos reales:
-
-- No subas listados, documentos exportados ni información personal al repositorio.
-- No versionas `.env` real, contraseñas ni credenciales.
-- Mantén los archivos temporales fuera del directorio público.
-- Usa privilegios mínimos para las cuentas de base de datos.
-- Mantén habilitadas la autenticación, las sesiones y la protección CSRF.
-- Valida los datos de entrada y usa consultas preparadas para la base de datos.
-- Almacena las contraseñas mediante hashes seguros.
-- Comprueba la limpieza de archivos temporales y la expiración de resultados.
-- En producción, desactiva la depuración, configura HTTPS y revisa los permisos de archivos y carpetas.
-- Evita mostrar trazas o detalles internos de errores a usuarios finales.
-- Revisa logs y copias de seguridad para evitar la retención innecesaria de información personal.
-
-El almacenamiento temporal no garantiza por sí solo que no existan copias en otros lugares. El despliegue debe respetar las políticas institucionales de tratamiento de datos.
-
-## Solución de problemas
-
-### Composer instala dependencias, pero la aplicación no abre
-
-Comprueba que se haya utilizado una versión compatible de PHP, que exista `vendor/autoload.php` y que las dependencias estén instaladas. Revisa el error concreto y los logs antes de cambiar paquetes.
-
-### Falla la conexión a la base de datos
-
-Comprueba que MySQL/MariaDB esté iniciado y que los valores configurados coincidan con tu instalación. No asumas que `root` siempre usa una contraseña vacía.
-
-### No se genera el PDF
-
-Verifica que `tecnickcom/tc-lib-pdf` esté instalado, que el autoloader exista y que esté presente el directorio de fuentes requerido. Consulta los logs del servidor para el detalle técnico y evita mostrar información interna al usuario final.
-
-### El PDF muestra texto superpuesto o páginas incorrectas
-
-Comprueba que se esté usando la versión actual de `PdfPreviewService.php`, incluido el cálculo ajustado de altura de las filas. Valida con nombres largos y un archivo de varias páginas antes de modificar fuente, márgenes o límites de memoria.
-
-### La exportación no muestra los resultados esperados
-
-Comprueba que los resultados de la selección sigan disponibles en la sesión y que se haya utilizado el enlace del grupo correcto. No vuelvas a ejecutar la selección únicamente para generar otro formato.
-
-## Estado y siguientes pasos
-
-### Implementado y validado durante el desarrollo
-
-- Estructura modular y autoload de Composer.
-- Acceso administrativo, gestión de sesión y protección de formularios.
-- Carga de Excel y selección de hoja.
-- Validación de encabezados y procesamiento de registros.
-- Almacenamiento temporal y reglas de expiración configuradas.
-- Selección aleatoria sin reemplazo.
-- Visualización de seleccionados y no seleccionados.
-- Exportación a Excel de ambos grupos.
-- Vista previa PDF A3 horizontal de ambos grupos.
-- Ajuste del cálculo de altura de filas para mejorar la lectura de valores extensos.
-- Pruebas funcionales manuales de las exportaciones Excel y PDF.
-
-### Siguientes tareas recomendadas
-
-1. Revisar y completar la cobertura de pruebas automatizadas para los servicios de Excel y PDF.
-2. Ejecutar pruebas de integración para entradas inválidas, cantidades límite, sesiones y expiración.
-3. Revisar la política de eliminación de archivos y resultados temporales.
-4. Validar el despliegue institucional en el servidor Windows previsto, incluyendo HTTPS y permisos.
-5. Mantener este README actualizado cuando cambien las reglas, la configuración o la estructura del código.
-
-La aplicación no debe considerarse lista para producción hasta completar la revisión institucional de seguridad, privacidad, configuración y pruebas integrales.
+Antes de considerar la aplicación lista para producción, deben
+completarse las pruebas integrales y las revisiones institucionales de
+seguridad, privacidad, configuración y despliegue.
 
 ## Licencia y uso
 
-Randomix es un proyecto orientado al uso institucional. La licencia y las condiciones de distribución, modificación y uso deben definirse de acuerdo con las decisiones de la organización responsable.
+Randomix es un proyecto orientado al uso institucional. La licencia y
+las condiciones de distribución, modificación y uso deben definirse de
+acuerdo con las decisiones de la organización responsable.
