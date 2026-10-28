@@ -23,11 +23,12 @@ final class AuthService
         // Busca al administrador mediante una consulta preparada.
         $pdo = Database::getConnection();
 
+        // Recupera el rol junto con las credenciales del usuario.
         $consulta = $pdo->prepare(
-            'SELECT id, username, password_hash
-             FROM admin_users
-             WHERE username = :username
-             LIMIT 1'
+            'SELECT id, username, password_hash, rol
+            FROM admin_users
+            WHERE username = :username
+            LIMIT 1'
         );
 
         $consulta->execute([
@@ -61,6 +62,7 @@ final class AuthService
         return [
             'id' => (int) $administrador['id'],
             'username' => $administrador['username'],
+            'rol' => (int) $administrador['rol'],
         ];
     }
 }

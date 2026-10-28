@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 namespace Randomix\Controllers;
+use Randomix\Services\AdminDashboardService;
 
 final class PageController
 {
@@ -10,7 +11,8 @@ final class PageController
         private readonly string $projectRoot,
         private readonly ExcelInspectionController $excelInspectionController,
         private readonly ExcelComparisonController $excelComparisonController,
-        private readonly ExcelMergeController $excelMergeController
+        private readonly ExcelMergeController $excelMergeController,
+        private readonly AdminDashboardService $adminDashboardService
     ) {
     }
 
@@ -25,6 +27,16 @@ final class PageController
         switch ($page) {
             case 'dashboard':
                 require $this->projectRoot . '/templates/dashboard/index.php';
+                return;
+
+            case 'admin':
+                // Obtiene las estadísticas generales de las operaciones registradas.
+                $adminSummary = $this->adminDashboardService->getSummary();
+
+                // Obtiene las diez operaciones más recientes.
+                $recentActivity = $this->adminDashboardService->getRecentActivity(10);
+
+                require $this->projectRoot . '/templates/admin/index.php';
                 return;
 
             case 'selection':

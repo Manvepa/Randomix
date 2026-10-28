@@ -39,6 +39,6 @@ $showAuthenticatedLayout = $showAuthenticatedLayout ?? false;
     <?php endif; ?>
 
     <!-- Gestiona el indicador de carga de los formularios. -->
-    <script src="assets/js/loading-overlay.js" defer></script>
+    <script src="assets/js/loading-overlay.js?v=2" defer></script>
 </body>
 </html>

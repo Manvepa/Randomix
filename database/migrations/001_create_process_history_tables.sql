@@ -185,3 +185,18 @@ ALTER TABLE selection_runs
 ALTER TABLE excel_merge_runs
     ADD COLUMN created_at DATETIME NOT NULL
     DEFAULT CURRENT_TIMESTAMP;
+
+-- 1. Añadir el rol con valor predeterminado de usuario normal.
+ALTER TABLE admin_users
+ADD COLUMN rol TINYINT UNSIGNED NOT NULL DEFAULT 0
+AFTER username;
+
+-- 2. Asignar el rol de administrador exclusivamente a Tics.
+UPDATE admin_users
+SET rol = 1
+WHERE username = 'Tics';
+
+-- 3. Comprobar los roles asignados.
+SELECT id, username, rol
+FROM admin_users
+ORDER BY id;

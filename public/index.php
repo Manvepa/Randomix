@@ -65,13 +65,18 @@ $registrationMode = ($_GET['mode'] ?? '') === 'register'
         && ($_POST['action'] ?? '') === 'register'
     );
 
-// Comprueba si existe una sesión administrativa autenticada.
+// Comprueba si existe una sesión autenticada con un rol válido.
 $isAuthenticated = isset(
     $_SESSION['admin']['id'],
-    $_SESSION['admin']['username']
+    $_SESSION['admin']['username'],
+    $_SESSION['admin']['rol']
 );
 
- // Delega las solicitudes de exportación al controlador correspondiente.
+$userRole = $isAuthenticated
+    ? (int) $_SESSION['admin']['rol']
+    : 0;
+
+// Delega las solicitudes de exportación al controlador correspondiente.
 $exportController->handle(
     $_SERVER['REQUEST_METHOD'],
     $_GET,
@@ -93,7 +98,8 @@ $pageController = new PageController(
     $projectRoot,
     $excelInspectionController,
     $excelComparisonController,
-    $excelMergeController
+    $excelMergeController,
+    $controllers['admin_dashboard'],
 );
 
 // Limpia archivos temporales y referencias vencidas de sesiones autenticadas.
@@ -124,12 +130,22 @@ if (!$pageAccessController->isValidPage($page)) {
     exit('Página no encontrada.');
 }
 
-// Impide acceder a páginas protegidas sin autenticación.
+// Redirige al usuario cuando no tiene permisos para acceder a una página.
 if (
-    $pageAccessController->requiresAuthentication($page)
-    && !$isAuthenticated
+    !$pageAccessController->canAccess(
+        $page,
+        $isAuthenticated,
+        $userRole
+    )
 ) {
-    header('Location: index.php');
+    // Si no ha iniciado sesión, lo envía al login.
+    if (!$isAuthenticated) {
+        header('Location: index.php?page=login');
+        exit;
+    }
+
+    // Si inició sesión, pero no tiene permisos, vuelve al Dashboard.
+    header('Location: index.php?page=dashboard');
     exit;
 }
 

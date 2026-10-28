@@ -39,6 +39,7 @@ final class AuthController
         $_SESSION['admin'] = [
             'id' => $administrador['id'],
             'username' => $administrador['username'],
+            'rol' => $administrador['rol'],
         ];
 
         return true;

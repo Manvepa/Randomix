@@ -12,6 +12,7 @@ use Randomix\Controllers\SelectionController;
 use Randomix\Controllers\TemporaryFileCleanupController;
 use Randomix\Controllers\UploadController;
 use Randomix\Services\ComparisonPersistenceService;
+use Randomix\Services\AdminDashboardService;
 use Randomix\Support\Database;
 use Randomix\Services\SelectionPersistenceService;
 use Randomix\Services\ExcelExportService;
@@ -69,6 +70,9 @@ final class ApplicationFactory
         // Obtiene una única conexión para compartirla entre los servicios.
         $connection = Database::getConnection();
 
+        // Prepara el servicio encargado de consultar el Dashboard administrativo.
+        $adminDashboardService = new AdminDashboardService($connection);
+
         // Prepara el servicio encargado de persistir las comparaciones.
         $comparisonPersistenceService = new ComparisonPersistenceService(
             $connection
@@ -112,6 +116,7 @@ final class ApplicationFactory
             'excel_merge' => $excelMergeController,
             'excel_inspection' => $excelInspectionController,
             'post_action' => $postActionController,
+            'admin_dashboard' => $adminDashboardService,
         ];
     }
 }
