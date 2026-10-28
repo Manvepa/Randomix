@@ -1040,3 +1040,131 @@ body.is-loading {
         grid-column: 1;
     }
 }
+
+
+/* ==========================================================
+   Tabla de actividad reciente del Dashboard administrativo
+   ========================================================== */
+
+/* Permite desplazamiento horizontal cuando falta espacio. */
+.dashboard-page .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid var(--color-border, #dce6df);
+    border-radius: 12px;
+    background: #fff;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Mantiene un ancho mínimo para que las columnas sean legibles. */
+.dashboard-page .table-responsive table {
+    width: 100%;
+    min-width: 920px;
+    border-collapse: separate;
+    border-spacing: 0;
+    table-layout: fixed;
+}
+
+/* Separa visualmente las celdas. */
+.dashboard-page .table-responsive th,
+.dashboard-page .table-responsive td {
+    padding: 14px 16px;
+    text-align: left;
+    vertical-align: top;
+    border-bottom: 1px solid #e8eee9;
+    line-height: 1.5;
+}
+
+/* Diferencia los encabezados del contenido. */
+.dashboard-page .table-responsive th {
+    background: #007A30;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: normal;
+}
+
+/* Evita que los nombres largos invadan otras columnas. */
+.dashboard-page .table-responsive td {
+    font-size: 13px;
+    overflow-wrap: anywhere;
+    word-break: normal;
+}
+
+/* Define proporciones para las seis columnas del historial. */
+.dashboard-page .table-responsive th:nth-child(1),
+.dashboard-page .table-responsive td:nth-child(1) {
+    width: 13%;
+}
+
+.dashboard-page .table-responsive th:nth-child(2),
+.dashboard-page .table-responsive td:nth-child(2) {
+    width: 9%;
+}
+
+.dashboard-page .table-responsive th:nth-child(3),
+.dashboard-page .table-responsive td:nth-child(3) {
+    width: 17%;
+}
+
+.dashboard-page .table-responsive th:nth-child(4),
+.dashboard-page .table-responsive td:nth-child(4) {
+    width: 17%;
+}
+
+.dashboard-page .table-responsive th:nth-child(5),
+.dashboard-page .table-responsive td:nth-child(5) {
+    width: 12%;
+}
+
+.dashboard-page .table-responsive th:nth-child(6),
+.dashboard-page .table-responsive td:nth-child(6) {
+    width: 32%;
+}
+
+/* Separa los enlaces de descarga para facilitar su lectura. */
+.dashboard-page .table-responsive td:nth-child(6) > div {
+    margin-bottom: 7px;
+}
+
+.dashboard-page .table-responsive td:nth-child(6) > div:last-child {
+    margin-bottom: 0;
+}
+
+.dashboard-page .table-responsive td:nth-child(6) a {
+    display: inline-block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    line-height: 1.6;
+}
+
+/* Resalta la fila al pasar el cursor. */
+.dashboard-page .table-responsive tbody tr:hover {
+    background: #e0e0de9f;
+}
+
+/* Elimina el borde inferior de la última fila. */
+.dashboard-page .table-responsive tbody tr:last-child td {
+    border-bottom: 0;
+}
+
+/* Controles de navegación del historial administrativo. */
+.history-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.history-pagination > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.history-pagination > span {
+    color: var(--color-muted);
+    font-size: 13px;
+}

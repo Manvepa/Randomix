@@ -16,7 +16,7 @@ $adminSummary = $adminSummary ?? [
 $recentActivity = $recentActivity ?? [];
 
 // Formatea cantidades para mostrarlas de forma legible.
-$formatNumber = static fn (int $value): string =>
+$formatNumber = static fn(int $value): string =>
     number_format($value, 0, ',', '.');
 
 // Construye el contenido antes de cargar el layout compartido.
@@ -37,13 +37,8 @@ ob_start();
             </p>
         </div>
 
-        <img
-            class="brand-mark"
-            src="assets/images/randomix-logo.png"
-            alt=""
-            aria-hidden="true"
-            style="width: 100px; height: auto;"
-        >
+        <img class="brand-mark" src="assets/images/randomix-logo.png" alt="" aria-hidden="true"
+            style="width: 100px; height: auto;">
     </div>
 
     <section class="dashboard-section" aria-labelledby="summary-title">
@@ -104,7 +99,13 @@ ob_start();
                 <h2 id="activity-title">Actividad reciente</h2>
 
                 <p>
-                    Las diez operaciones más recientes registradas.
+                    <?php if ($showFullHistory): ?>
+                        Historial completo de operaciones registradas.
+                        Total:
+                        <?= $formatNumber((int) $totalActivity) ?> operaciones.
+                    <?php else: ?>
+                        Las diez operaciones más recientes registradas.
+                    <?php endif; ?>
                 </p>
             </div>
         </div>
@@ -133,6 +134,7 @@ ob_start();
                             <th>Fecha</th>
                             <th>Registros procesados</th>
                             <th>Resultado</th>
+                            <th>Descargas</th>
                         </tr>
                     </thead>
 
@@ -165,25 +167,126 @@ ob_start();
                                     ) ?>
                                 </td>
 
+
                                 <td>
-                                    <?= $formatNumber(
-                                        (int) $activity['result_count']
-                                    ) ?>
+                                    <?php
+                                    // Define las opciones de descarga según el tipo de operación.
+                                    $downloads = match ($activity['operation_type']) {
+                                        'Selección' => [
+                                            [
+                                                'id' => $activity['selected_file_id'] ?? null,
+                                                'name' => $activity['selected_file_name'] ?? null,
+                                                'label' => 'Seleccionados',
+                                            ],
+                                            [
+                                                'id' => $activity['not_selected_file_id'] ?? null,
+                                                'name' => $activity['not_selected_file_name'] ?? null,
+                                                'label' => 'No seleccionados',
+                                            ],
+                                            [
+                                                'id' => $activity['alternates_file_id'] ?? null,
+                                                'name' => $activity['alternates_file_name'] ?? null,
+                                                'label' => 'Suplentes',
+                                            ],
+                                        ],
+                                        'Comparación', 'Unión' => [
+                                            [
+                                                'id' => $activity['result_file_id'] ?? null,
+                                                'name' => $activity['result_file_name'] ?? null,
+                                                'label' => 'Descargar resultado',
+                                            ],
+                                        ],
+                                        default => [],
+                                    };
+
+                                    // Muestra únicamente enlaces que tengan un identificador válido.
+                                    $hasDownloads = false;
+
+                                    foreach ($downloads as $download):
+                                        $artifactId = (int) ($download['id'] ?? 0);
+
+                                        if ($artifactId <= 0) {
+                                            continue;
+                                        }
+
+                                        $hasDownloads = true;
+                                        $downloadName = trim((string) ($download['name'] ?? ''));
+
+                                        if ($downloadName === '') {
+                                            $downloadName = $download['label'];
+                                        }
+                                        ?>
+                                        <div>
+                                            <a href="index.php?download_artifact=<?= $artifactId ?>" aria-label="<?= htmlspecialchars(
+                                                  'Descargar ' . $downloadName,
+                                                  ENT_QUOTES,
+                                                  'UTF-8'
+                                              ) ?>">
+                                                <?= htmlspecialchars(
+                                                    $downloadName,
+                                                    ENT_QUOTES,
+                                                    'UTF-8'
+                                                ) ?>
+                                            </a>
+                                        </div>
+                                    <?php endforeach; ?>
+
+                                    <?php if (!$hasDownloads): ?>
+                                        <span>Sin archivos disponibles</span>
+                                    <?php endif; ?>
                                 </td>
+
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
 
+
+            <?php if ($showFullHistory && $totalPages > 1): ?>
+                <nav class="history-pagination" aria-label="Paginación del historial">
+                    <span>
+                        Página
+                        <?= (int) $currentPage ?>
+                        de
+                        <?= (int) $totalPages ?>
+                    </span>
+
+                    <div>
+                        <?php if ($currentPage > 1): ?>
+                            <a class="button button-secondary" href="index.php?page=admin&history=1&p=<?= $currentPage - 1 ?>">
+                                Anterior
+                            </a>
+                        <?php endif; ?>
+
+                        <?php if ($currentPage < $totalPages): ?>
+                            <a class="button button-primary" href="index.php?page=admin&history=1&p=<?= $currentPage + 1 ?>">
+                                Siguiente
+                            </a>
+                        <?php endif; ?>
+                    </div>
+                </nav>
+            <?php endif; ?>
+
+
+        <?php endif; ?>
+
+        <?php if (!$showFullHistory): ?>
+            <a class="button button-primary" href="index.php?page=admin&history=1&p=1">
+                Ver todo el historial
+            </a>
+        <?php else: ?>
+            <a class="button button-secondary" href="index.php?page=admin">
+                Volver a actividad reciente
+            </a>
         <?php endif; ?>
     </section>
-
     <div>
         <a class="button button-primary" href="index.php?page=dashboard">
             Volver al inicio
         </a>
     </div>
+
 
 </section>
 

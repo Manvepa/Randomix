@@ -56,6 +56,16 @@ final class ExportController
             return true;
         }
 
+        // Descarga un archivo de salida registrado en el historial del Dashboard.
+        if ($method === 'GET' && array_key_exists('download_artifact', $get)) {
+            $this->downloadDashboardArtifact(
+                $get['download_artifact'],
+                $isAuthenticated
+            );
+
+            return true;
+        }
+
         if ($method === 'GET' && isset($get['export'])) {
             $this->exportSelectionExcel($get['export'], $isAuthenticated);
             return true;
@@ -461,4 +471,63 @@ final class ExportController
         echo $content;
         exit;
     }
+
+
+    /**
+     * Descarga un archivo de salida desde el historial del Dashboard.
+     *
+     * Solo permite acceder a administradores autenticados y a archivos
+     * registrados como resultados de operaciones de Randomix.
+     */
+    private function downloadDashboardArtifact(
+        mixed $artifactId,
+        bool $isAuthenticated
+    ): void {
+        // Comprueba que el usuario haya iniciado sesión.
+        $this->requireAuthentication($isAuthenticated);
+
+        // Este endpoint está reservado para el Dashboard administrativo.
+        if ((int) ($_SESSION['admin']['rol'] ?? 0) !== 1) {
+            http_response_code(403);
+            exit('No tienes permisos para descargar este archivo.');
+        }
+
+        // Valida el identificador recibido en la URL.
+        if (
+            !is_string($artifactId)
+            || !ctype_digit($artifactId)
+            || (int) $artifactId <= 0
+        ) {
+            http_response_code(400);
+            exit('El identificador del archivo no es válido.');
+        }
+
+        $id = (int) $artifactId;
+
+        try {
+            // Impide descargar archivos originales que no sean resultados.
+            if (!$this->fileArtifactService->isOperationOutput($id)) {
+                http_response_code(404);
+                exit('No se encontró un archivo de salida para descargar.');
+            }
+
+            // Recupera el contenido del artefacto guardado.
+            $content = $this->fileArtifactService->readContent($id);
+        } catch (Throwable $exception) {
+            error_log(
+                '[Randomix][Descarga desde Dashboard] '
+                . $exception->__toString()
+            );
+
+            http_response_code(500);
+            exit('No fue posible recuperar el archivo solicitado.');
+        }
+
+        // Utiliza un nombre fijo para evitar problemas con cabeceras HTTP.
+        $this->sendExcel(
+            $content,
+            'resultado_randomix_' . $id . '.xlsx'
+        );
+    }
+
 }

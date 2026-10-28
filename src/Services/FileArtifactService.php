@@ -293,4 +293,64 @@ final class FileArtifactService
         return $content;
     }
 
+
+    /**
+     * Comprueba si un archivo está registrado como resultado
+     * de una operación de selección, comparación o unión.
+     *
+     * Los archivos de entrada no se consideran resultados descargables
+     * desde el historial del Dashboard.
+     */
+    public function isOperationOutput(int $artifactId): bool
+    {
+        if ($artifactId <= 0) {
+            return false;
+        }
+
+        $sql = <<<'SQL'
+            SELECT EXISTS (
+                SELECT 1
+                FROM selection_runs
+                WHERE selected_file_id = :selected_id
+
+                UNION ALL
+
+                SELECT 1
+                FROM selection_runs
+                WHERE not_selected_file_id = :not_selected_id
+
+                UNION ALL
+
+                SELECT 1
+                FROM selection_runs
+                WHERE alternates_file_id = :alternates_id
+
+                UNION ALL
+
+                SELECT 1
+                FROM comparison_runs
+                WHERE result_file_id = :comparison_id
+
+                UNION ALL
+
+                SELECT 1
+                FROM excel_merge_runs
+                WHERE result_file_id = :merge_id
+            ) AS is_output
+            SQL;
+
+        $statement = $this->connection->prepare($sql);
+
+        $statement->execute([
+            'selected_id' => $artifactId,
+            'not_selected_id' => $artifactId,
+            'alternates_id' => $artifactId,
+            'comparison_id' => $artifactId,
+            'merge_id' => $artifactId,
+        ]);
+
+        return (int) $statement->fetchColumn() === 1;
+    }
+
+
 }

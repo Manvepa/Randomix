@@ -200,3 +200,69 @@ WHERE username = 'Tics';
 SELECT id, username, rol
 FROM admin_users
 ORDER BY id;
+
+
+-- ============================================================
+-- Randomix
+-- Crear claves foráneas hacia file_artifacts
+-- Compatible con MariaDB 10.4.32
+-- ============================================================
+
+-- 1. Relaciones de comparación de Excel.
+ALTER TABLE comparison_runs
+    ADD CONSTRAINT fk_comparison_runs_file_a
+        FOREIGN KEY (file_a_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_comparison_runs_file_b
+        FOREIGN KEY (file_b_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_comparison_runs_result_file
+        FOREIGN KEY (result_file_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT;
+
+-- 2. Relaciones de unión de Excel.
+ALTER TABLE excel_merge_runs
+    ADD CONSTRAINT fk_excel_merge_runs_file_a
+        FOREIGN KEY (file_a_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_excel_merge_runs_file_b
+        FOREIGN KEY (file_b_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_excel_merge_runs_result_file
+        FOREIGN KEY (result_file_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT;
+
+-- 3. Relaciones de selección aleatoria.
+ALTER TABLE selection_runs
+    ADD CONSTRAINT fk_selection_runs_source_file
+        FOREIGN KEY (source_file_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_selection_runs_selected_file
+        FOREIGN KEY (selected_file_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_selection_runs_not_selected_file
+        FOREIGN KEY (not_selected_file_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT,
+    ADD CONSTRAINT fk_selection_runs_alternates_file
+        FOREIGN KEY (alternates_file_id)
+        REFERENCES file_artifacts (id)
+        ON UPDATE RESTRICT
+        ON DELETE RESTRICT;
