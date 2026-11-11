@@ -134,7 +134,6 @@ ob_start();
                             <th>Fecha</th>
                             <th>Registros procesados</th>
                             <th>Resultado</th>
-                            <th>Descargas</th>
                         </tr>
                     </thead>
 

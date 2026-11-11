@@ -35,6 +35,13 @@ final class FileArtifactService
     /**
      * Guarda contenido binario y registra sus metadatos.
      *
+     * El quinto parámetro es opcional para conservar compatibilidad con
+     * los archivos generados internamente por Randomix.
+     *
+     * Cuando el archivo proviene de una subida validada, se debe enviar
+     * el SHA-256 calculado por FileUploadValidator para comparar ambas
+     * huellas antes de registrar el artefacto.
+     *
      * @return array{
      *     id: int,
      *     original_name: string,
@@ -50,12 +57,15 @@ final class FileArtifactService
         string $content,
         string $originalName,
         string $extension,
-        string $mimeType
+        string $mimeType,
+        ?string $expectedSha256 = null
     ): array {
-        // Valida los datos que identifican al archivo.
-        $originalName = basename(trim($originalName));
+        // Normaliza los metadatos recibidos sin utilizarlos como ruta física.
+        $originalName = basename(
+            str_replace('\\', '/', trim($originalName))
+        );
         $extension = strtolower(ltrim(trim($extension), '.'));
-        $mimeType = trim($mimeType);
+        $mimeType = strtolower(trim($mimeType));
 
         if ($content === '') {
             throw new RuntimeException(
@@ -73,19 +83,57 @@ final class FileArtifactService
             );
         }
 
-        if (
-            !in_array($extension, ['xls', 'xlsx'], true)
-            || strlen($extension) > 10
-        ) {
+        if (!in_array($extension, ['xls', 'xlsx'], true)) {
             throw new RuntimeException(
                 'La extensión del archivo no es válida.'
             );
         }
 
-        if ($mimeType === '' || strlen($mimeType) > 100) {
+        // Comprueba que el MIME corresponda a uno de los formatos admitidos.
+        $allowedMimeTypes = [
+            'xlsx' => [
+                'application/zip',
+                'application/x-zip',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            ],
+            'xls' => [
+                'application/vnd.ms-excel',
+                'application/x-ole-storage',
+                'application/x-cfb',
+                'application/cdfv2',
+                'application/x-cdf',
+            ],
+        ];
+
+        if (
+            $mimeType === ''
+            || strlen($mimeType) > 100
+            || !in_array(
+                $mimeType,
+                $allowedMimeTypes[$extension],
+                true
+            )
+        ) {
             throw new RuntimeException(
-                'El tipo MIME del archivo no es válido.'
+                'El tipo MIME no corresponde a la extensión del archivo.'
             );
+        }
+
+        // Calcula la huella del contenido antes de escribirlo en disco.
+        $contentSha256 = hash('sha256', $content);
+
+        // Si viene de una subida validada, compara contra el hash de origen.
+        if ($expectedSha256 !== null) {
+            $expectedSha256 = strtolower(trim($expectedSha256));
+
+            if (
+                preg_match('/\A[a-f0-9]{64}\z/', $expectedSha256) !== 1
+                || !hash_equals($expectedSha256, $contentSha256)
+            ) {
+                throw new RuntimeException(
+                    'La huella SHA-256 del archivo no coincide con la validación inicial.'
+                );
+            }
         }
 
         // Crea el almacenamiento definitivo si todavía no existe.
@@ -105,7 +153,7 @@ final class FileArtifactService
             );
         }
 
-        // Genera un nombre interno único, independiente del nombre original.
+        // Genera un nombre interno aleatorio, independiente del nombre original.
         $storedName = 'randomix_'
             . bin2hex(random_bytes(16))
             . '.'
@@ -118,42 +166,95 @@ final class FileArtifactService
         // La ruta de la base de datos es relativa a storage/records/.
         $relativePath = $storedName;
 
-        // Escribe el contenido binario sin alterar los bytes del archivo.
-        $bytesWritten = file_put_contents(
-            $absolutePath,
-            $content,
-            LOCK_EX
-        );
+        /*
+         * Crea el archivo en modo exclusivo para impedir sobrescribir otro
+         * archivo incluso en el caso extremadamente improbable de colisión.
+         */
+        $handle = @fopen($absolutePath, 'xb');
 
-        if ($bytesWritten === false || $bytesWritten !== strlen($content)) {
+        if ($handle === false) {
+            throw new RuntimeException(
+                'No fue posible crear el archivo definitivo.'
+            );
+        }
+
+        try {
+            // Escribe todo el contenido, contemplando escrituras parciales.
+            $contentLength = strlen($content);
+            $writtenLength = 0;
+
+            while ($writtenLength < $contentLength) {
+                $written = fwrite(
+                    $handle,
+                    substr($content, $writtenLength)
+                );
+
+                if ($written === false || $written === 0) {
+                    throw new RuntimeException(
+                        'No fue posible escribir completamente el archivo definitivo.'
+                    );
+                }
+
+                $writtenLength += $written;
+            }
+
+            if (!fflush($handle)) {
+                throw new RuntimeException(
+                    'No fue posible completar la escritura del archivo definitivo.'
+                );
+            }
+        } catch (Throwable $exception) {
+            fclose($handle);
+
             if (is_file($absolutePath) && !@unlink($absolutePath)) {
                 error_log(
-                    'Randomix: no fue posible limpiar el archivo '
-                    . 'que no se pudo guardar completamente: '
+                    'Randomix: no fue posible limpiar un archivo '
+                    . 'cuya escritura quedó incompleta: '
                     . $storedName
                 );
             }
 
             throw new RuntimeException(
-                'No fue posible guardar el archivo definitivo.'
+                'No fue posible guardar el archivo definitivo.',
+                0,
+                $exception
             );
         }
 
-        // Indica si la inserción en la base de datos terminó correctamente.
-        $registroInsertado = false;
-
-        try {
-            // Calcula los metadatos usando el archivo que quedó en disco.
-            $fileSize = filesize($absolutePath);
-            $sha256 = hash_file('sha256', $absolutePath);
-
-            if ($fileSize === false || $sha256 === false) {
-                throw new RuntimeException(
-                    'No fue posible calcular los metadatos del archivo.'
+        if (!fclose($handle)) {
+            if (is_file($absolutePath) && !@unlink($absolutePath)) {
+                error_log(
+                    'Randomix: no fue posible limpiar un archivo '
+                    . 'tras fallar el cierre de escritura: '
+                    . $storedName
                 );
             }
 
-            // Registra el archivo conforme al esquema file_artifacts.
+            throw new RuntimeException(
+                'No fue posible finalizar la escritura del archivo definitivo.'
+            );
+        }
+
+        try {
+            // Limpia la caché de metadatos antes de consultar el archivo escrito.
+            clearstatcache(true, $absolutePath);
+
+            // Comprueba tamaño y SHA-256 sobre el archivo físico definitivo.
+            $fileSize = filesize($absolutePath);
+            $storedSha256 = hash_file('sha256', $absolutePath);
+
+            if (
+                $fileSize === false
+                || $fileSize !== strlen($content)
+                || !is_string($storedSha256)
+                || !hash_equals($contentSha256, $storedSha256)
+            ) {
+                throw new RuntimeException(
+                    'La integridad del archivo definitivo no pudo verificarse.'
+                );
+            }
+
+            // Registra el archivo conforme al esquema existente file_artifacts.
             $statement = $this->connection->prepare(
                 'INSERT INTO file_artifacts (
                     original_name,
@@ -181,11 +282,8 @@ final class FileArtifactService
                 'file_extension' => $extension,
                 'mime_type' => $mimeType,
                 'file_size' => $fileSize,
-                'sha256' => $sha256,
+                'sha256' => $storedSha256,
             ]);
-
-            // La inserción terminó: el archivo ya tiene un registro.
-            $registroInsertado = true;
 
             $id = (int) $this->connection->lastInsertId();
 
@@ -195,6 +293,9 @@ final class FileArtifactService
                 );
             }
 
+            // Permisos conservadores cuando el sistema operativo los soporta.
+            @chmod($absolutePath, 0600);
+
             return [
                 'id' => $id,
                 'original_name' => $originalName,
@@ -203,31 +304,47 @@ final class FileArtifactService
                 'file_extension' => $extension,
                 'mime_type' => $mimeType,
                 'file_size' => $fileSize,
-                'sha256' => $sha256,
+                'sha256' => $storedSha256,
             ];
         } catch (Throwable $exception) {
-            // Solo elimina el archivo si no se insertó su registro.
-            if (!$registroInsertado) {
-                if (is_file($absolutePath) && !@unlink($absolutePath)) {
-                    error_log(
-                        'Randomix: no fue posible limpiar un archivo '
-                        . 'definitivo cuyo registro falló: '
-                        . $storedName
-                    );
-                }
+            /*
+             * Si falla la inserción o la obtención del identificador,
+             * elimina cualquier fila parcial por nombre interno y el archivo.
+             * La condición por stored_name evita tocar registros ajenos.
+             */
+            try {
+                $cleanupStatement = $this->connection->prepare(
+                    'DELETE FROM file_artifacts
+                     WHERE stored_name = :stored_name'
+                );
+
+                $cleanupStatement->execute([
+                    'stored_name' => $storedName,
+                ]);
+            } catch (Throwable $cleanupException) {
+                error_log(
+                    'Randomix: no fue posible limpiar el registro parcial '
+                    . $storedName
+                    . '. '
+                    . $cleanupException->getMessage()
+                );
             }
 
-            // Evita borrar un archivo que ya tiene registro en la base de datos.
+            if (is_file($absolutePath) && !@unlink($absolutePath)) {
+                error_log(
+                    'Randomix: no fue posible eliminar el archivo definitivo '
+                    . 'tras fallar el registro: '
+                    . $storedName
+                );
+            }
+
             throw new RuntimeException(
-                $registroInsertado
-                    ? 'El archivo se guardó, pero ocurrió un error al finalizar la operación.'
-                    : 'No fue posible registrar el archivo en la base de datos.',
+                'No fue posible almacenar y registrar el archivo definitivo.',
                 0,
                 $exception
             );
         }
     }
-
 
     /**
      * Recupera el contenido de un artefacto previamente registrado.
@@ -293,7 +410,6 @@ final class FileArtifactService
         return $content;
     }
 
-
     /**
      * Comprueba si un archivo está registrado como resultado
      * de una operación de selección, comparación o unión.
@@ -351,6 +467,4 @@ final class FileArtifactService
 
         return (int) $statement->fetchColumn() === 1;
     }
-
-
 }

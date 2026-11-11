@@ -15,10 +15,13 @@ final class UploadController
 
     private FileArtifactService $fileArtifactService;
 
+    private FileUploadValidator $fileUploadValidator;
+
     private int $retentionSeconds = 900;
 
     /**
-     * Configura el directorio temporal y el servicio de almacenamiento permanente.
+     * Configura el almacenamiento temporal, el validador y el servicio
+     * encargado de registrar los archivos originales.
      */
     public function __construct(
         string $projectRoot,
@@ -30,49 +33,67 @@ final class UploadController
             );
         }
 
-        $projectRoot = rtrim($projectRoot, DIRECTORY_SEPARATOR);
+        $projectRoot = rtrim(
+            $projectRoot,
+            DIRECTORY_SEPARATOR
+        );
 
+        // Define el directorio temporal administrado por Randomix.
         $this->temporaryDirectory = $projectRoot
             . DIRECTORY_SEPARATOR . 'storage'
             . DIRECTORY_SEPARATOR . 'temporary';
 
+        // Carga la configuración oficial de formatos y MIME permitidos.
+        $importConfigPath = $projectRoot
+            . DIRECTORY_SEPARATOR . 'config'
+            . DIRECTORY_SEPARATOR . 'import.php';
+
+        if (!is_file($importConfigPath) || !is_readable($importConfigPath)) {
+            throw new RuntimeException(
+                'No se encontró la configuración de importación de Randomix.'
+            );
+        }
+
+        $importConfig = require $importConfigPath;
+        $allowedMimeTypes = $importConfig['allowed_mime_types'] ?? null;
+
+        if (!is_array($allowedMimeTypes)) {
+            throw new RuntimeException(
+                'La configuración de tipos MIME permitidos no es válida.'
+            );
+        }
+
+        // Prepara el validador compartido por todos los formularios de carga.
+        $this->fileUploadValidator = new FileUploadValidator(
+            $this->maxFileSize,
+            $allowedMimeTypes
+        );
+
+        // Conserva el servicio existente para registrar los archivos originales.
         $this->fileArtifactService = new FileArtifactService(
             $projectRoot
         );
     }
 
     /**
-     * Valida el Excel, conserva la copia temporal y registra una copia permanente.
+     * Valida el Excel, conserva una copia temporal y registra el original.
+     *
+     * Este método es el único punto de entrada para archivos recibidos
+     * mediante los formularios de Randomix.
+     *
+     * @return array{
+     *     success: bool,
+     *     errors?: list<string>,
+     *     stored_filename?: string,
+     *     original_name?: string,
+     *     artifact_id?: int,
+     *     sha256?: string
+     * }
      */
     public function handle(array $file): array
     {
-        // Rechaza estructuras de archivo inesperadas.
-        if (
-            !isset(
-                $file['name'],
-                $file['tmp_name'],
-                $file['error'],
-                $file['size']
-            )
-            || !is_string($file['name'])
-            || !is_string($file['tmp_name'])
-            || !is_int($file['error'])
-            || !is_int($file['size'])
-        ) {
-            return [
-                'success' => false,
-                'errors' => [
-                    'La información recibida del archivo no es válida.',
-                ],
-            ];
-        }
-
-        // Reutiliza el validador existente del proyecto.
-        $validator = new FileUploadValidator(
-            $this->maxFileSize
-        );
-
-        $validation = $validator->validateUploadedFile($file);
+        // Valida el origen HTTP, tamaño, extensión, MIME y formato real.
+        $validation = $this->fileUploadValidator->validateUploadedFile($file);
 
         if (!$validation['valid']) {
             return [
@@ -81,10 +102,25 @@ final class UploadController
             ];
         }
 
-        // Conserva únicamente una extensión previamente validada.
-        $extension = strtolower(
-            pathinfo($file['name'], PATHINFO_EXTENSION)
+        // Obtiene exclusivamente los metadatos calculados por el validador.
+        $extension = $validation['extension'];
+        $mimeType = $validation['mime_type'];
+        $expectedSize = $validation['size'];
+        $expectedHash = $validation['sha256'];
+
+        // Reduce el nombre recibido a un nombre base, sin rutas.
+        $originalName = basename(
+            str_replace('\\', '/', trim($file['name']))
         );
+
+        if ($originalName === '') {
+            return [
+                'success' => false,
+                'errors' => [
+                    'El nombre original del archivo no es válido.',
+                ],
+            ];
+        }
 
         // Crea el directorio temporal si todavía no existe.
         if (
@@ -103,7 +139,7 @@ final class UploadController
             );
         }
 
-        // Genera un nombre impredecible para el procesamiento temporal.
+        // Genera un nombre interno aleatorio para evitar colisiones y rutas manipuladas.
         $storedFilename = 'randomix_upload_'
             . bin2hex(random_bytes(16))
             . '.'
@@ -113,7 +149,7 @@ final class UploadController
             . DIRECTORY_SEPARATOR
             . $storedFilename;
 
-        // Mueve el archivo desde el directorio temporal administrado por PHP.
+        // Mueve el archivo únicamente después de superar todas las validaciones.
         if (!move_uploaded_file($file['tmp_name'], $destination)) {
             throw new RuntimeException(
                 'No fue posible guardar el archivo recibido.'
@@ -121,7 +157,32 @@ final class UploadController
         }
 
         try {
-            // Lee la copia temporal para guardar el archivo permanente.
+            // Comprueba que el archivo almacenado conserve el tamaño original.
+            $storedSize = filesize($destination);
+
+            if ($storedSize === false || $storedSize !== $expectedSize) {
+                throw new RuntimeException(
+                    'El tamaño del archivo cambió durante su almacenamiento.'
+                );
+            }
+
+            // Comprueba nuevamente el SHA-256 después del movimiento.
+            $storedHash = hash_file('sha256', $destination);
+
+            if (
+                !is_string($storedHash)
+                || !hash_equals($expectedHash, $storedHash)
+            ) {
+                throw new RuntimeException(
+                    'La integridad del archivo no pudo verificarse después de guardarlo.'
+                );
+            }
+
+            /*
+             * FileArtifactService actualmente recibe el contenido binario.
+             * Se conserva esa interfaz para no alterar el almacenamiento,
+             * la base de datos ni los controladores que consumen artefactos.
+             */
             $content = file_get_contents($destination);
 
             if ($content === false || $content === '') {
@@ -130,30 +191,34 @@ final class UploadController
                 );
             }
 
-            // Detecta el MIME a partir del contenido, no del nombre del archivo.
-            $finfo = new \finfo(FILEINFO_MIME_TYPE);
-            $detectedMime = $finfo->file($destination);
-
-            $mimeType = is_string($detectedMime) && $detectedMime !== ''
-                ? $detectedMime
-                : 'application/octet-stream';
-
             // Guarda el original en storage/records y registra sus metadatos.
             $artifact = $this->fileArtifactService->save(
                 $content,
-                basename($file['name']),
+                $originalName,
                 $extension,
-                $mimeType
+                $mimeType,
+                $expectedHash
             );
+
+            if (
+                !isset($artifact['id'])
+                || !is_numeric($artifact['id'])
+                || (int) $artifact['id'] <= 0
+            ) {
+                throw new RuntimeException(
+                    'El archivo se guardó, pero no se obtuvo un identificador válido.'
+                );
+            }
 
             return [
                 'success' => true,
                 'stored_filename' => $storedFilename,
-                'original_name' => basename($file['name']),
-                'artifact_id' => $artifact['id'],
+                'original_name' => $originalName,
+                'artifact_id' => (int) $artifact['id'],
+                'sha256' => $storedHash,
             ];
         } catch (Throwable $exception) {
-            // Si falla el registro permanente, elimina la copia temporal creada.
+            // Elimina la copia temporal si falla el registro del original.
             if (is_file($destination) && !@unlink($destination)) {
                 error_log(
                     'Randomix: no fue posible eliminar la copia temporal '
